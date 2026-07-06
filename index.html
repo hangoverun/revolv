@@ -6,6 +6,14 @@
 <meta name="theme-color" content="#05040f">
 <title>REVOLV — 궤도 반전 아케이드</title>
 <!-- v1.1 공유용 빌드 -->
+<!-- Google Analytics 4 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-K7D00GHNNV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', 'G-K7D00GHNNV');
+</script>
 <!-- 폰트: 네트워크가 없어도 시스템 폰트로 자연스럽게 폴백됩니다 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -583,8 +591,14 @@ function applyLang(){
 }
 function setLang(l){
   lang = l;
+  track('language_select', { language: l });
   try { localStorage.setItem('revolv_lang', l); } catch(e){}
   applyLang();
+}
+
+// ---------- 분석 (GA4) — 어떤 오류도 게임에 영향을 주지 않도록 격리 ----------
+function track(name, params){
+  try { if (typeof gtag === 'function') gtag('event', name, params || {}); } catch(e){}
 }
 
 // ---------- 사운드 (Web Audio API, 외부 파일 없음) ----------
@@ -1207,6 +1221,7 @@ function tutNext(){
     tutStep++;
     if (tutStep < TUT_STEPS.length){ showTutCard(tutStep); return; }
     tutSeen = true;
+    track('tutorial_complete', {});
     try { localStorage.setItem('revolv_tut1', '1'); } catch(e){}
   } else if (tutMode === 'card'){
     if (cardSeenKey){
@@ -1244,6 +1259,7 @@ function startGame(){
   updateCombo();
   if (musicOn) setMusicVol(MUSIC_VOL, 0.8); // BGM 복귀
   sndStart();
+  track('game_start', { language: lang });
   // 튜토리얼 상태 정리 후, 첫 판이면 튜토리얼 시작
   S.paused = false; tutMode = null;
   $('tut').className = '';
@@ -1266,6 +1282,12 @@ function die(spike){
 function showGameOver(){
   S.mode = 'over'; S.overLock = 0.6;
   const isRecord = S.score > S.best;
+  track('game_over', {
+    score: S.score,
+    play_time: Math.round(S.time),
+    level: S.level,
+    new_record: isRecord,
+  });
   if (isRecord){ S.best = S.score; saveBest(S.best); }
   $('final-score').textContent = S.score;
   $('final-best').textContent = 'BEST ' + S.best;
@@ -1349,6 +1371,7 @@ function update(dt){
       flash('120,60,255', 0.3);
       shake(10, 0.5);
       sndBlackhole();
+      track('milestone', { type: 'black_hole', score: S.score });
       if (S.eventIdx === 0) adaptT = ADAPT_DUR; // 이번 판 첫 블랙홀: 적응 감속
       if (!seen.bh) showSkipCard('🕳️', T('bhT'), T('bhB'), 'bh');
     } else {
@@ -1360,6 +1383,7 @@ function update(dt){
       flash('255,190,80', 0.28);
       shake(6, 0.35);
       sndFever();
+      track('milestone', { type: 'supernova_fever', score: S.score });
       if (S.eventIdx === 1) adaptT = ADAPT_DUR; // 이번 판 첫 피버: 가속과 상쇄되도록 감속
     }
     S.eventIdx++;
@@ -1377,6 +1401,7 @@ function update(dt){
   // ----- 혜성 활성화 (19000점) -----
   if (!S.cometOn && S.score >= COMET_AT){
     S.cometOn = true;
+    track('milestone', { type: 'comet_zone', score: S.score });
     cometT = 3.5;
     adaptT = Math.max(adaptT, 7); // 혜성 적응 시간
     if (!seen.comet) showSkipCard('☄️', T('cometT'), T('cometB'), 'comet');
@@ -1385,6 +1410,7 @@ function update(dt){
   // ----- 듀얼 오빗 해금 (12000점) -----
   if (!S.dual && S.score >= DUAL_AT){
     S.dual = true;
+    track('milestone', { type: 'dual_orbit', score: S.score });
     adaptT = Math.max(adaptT, 7); // 듀얼 오빗 적응 시간
     // 모든 스파이크 소멸 (연습 공간 확보) — 파티클 연출과 함께
     for (let i = items.length - 1; i >= 0; i--){
