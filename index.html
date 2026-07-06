@@ -255,6 +255,9 @@ body{
 .help-ic{flex:none;width:26px;text-align:center;font-size:17px;font-family:var(--font-d)}
 .help-ic svg{vertical-align:-3px}
 .btn.small{margin-top:22px;padding:11px 36px;font-size:13px;letter-spacing:.2em}
+.help-contact{margin-top:18px;font-size:11px;line-height:1.9;color:rgba(232,230,255,.5);text-align:center}
+.help-contact a{color:var(--cyan);text-decoration:none}
+.over-contact{margin-top:16px;font-size:11px;letter-spacing:.12em;color:rgba(232,230,255,.35)}
 
 /* ---------- 언어 선택 버튼 ---------- */
 .lang-row{margin-top:20px;display:flex;gap:10px}
@@ -359,6 +362,7 @@ body{
     <div class="over-best" id="final-best">BEST 0</div>
     <button class="btn restart" id="btn-restart">RETRY</button>
     <div class="hint" id="over-hint"></div>
+    <div class="over-contact">Feedback · Instagram @playrevolv</div>
   </div>
 </div>
 
@@ -397,6 +401,7 @@ body{
       <div class="help-row"><span class="help-ic" style="color:var(--viola)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 12a6.8 6.8 0 0 1 11.9-4.5"/><path d="M18.8 12a6.8 6.8 0 0 1-11.9 4.5"/><path d="M17.4 4.4l-.2 3.4-3.4-.7"/><path d="M6.6 19.6l.2-3.4 3.4.7"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg></span>
         <div id="h-dual"></div></div>
     </div>
+    <div class="help-contact" id="help-contact"></div>
     <button class="btn small" id="btn-help-close"></button>
   </div>
 </div>
@@ -485,6 +490,7 @@ const L = {
     overHint: '화면을 탭해도 바로 재시작됩니다',
     tutNext: '탭하여 계속 ▸',
     close: '닫기',
+    fbLbl: '피드백', privacyLbl: '개인정보처리방침',
     x2: '점수 ×2',
     tutT: ['궤도 반전', '무적', '자석'],
     tutB: [
@@ -518,6 +524,7 @@ const L = {
     overHint: 'Tap anywhere to retry instantly',
     tutNext: 'Tap to continue ▸',
     close: 'CLOSE',
+    fbLbl: 'Feedback', privacyLbl: 'Privacy Policy',
     x2: 'SCORE ×2',
     tutT: ['Reverse Orbit', 'Shield', 'Magnet'],
     tutB: [
@@ -566,6 +573,10 @@ function applyLang(){
   $('over-hint').textContent = d.overHint;
   $('tut-next').textContent = d.tutNext;
   $('btn-help-close').textContent = d.close;
+  $('help-contact').innerHTML =
+    d.fbLbl + ': <a href="https://www.instagram.com/playrevolv" target="_blank" rel="noopener">Instagram @playrevolv</a> · ' +
+    '<a href="mailto:playrevolv@gmail.com">playrevolv@gmail.com</a><br>' +
+    '<a href="privacy.html">' + d.privacyLbl + '</a>';
   for (const k of Object.keys(d.help)) $('h-' + k).innerHTML = d.help[k];
   $('lang-en').classList.toggle('on', lang === 'en');
   $('lang-ko').classList.toggle('on', lang === 'ko');
