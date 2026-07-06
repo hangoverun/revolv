@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05040f">
+<title>REVOLV — 궤도 반전 아케이드</title>
+<!-- v1.1 공유용 빌드 -->
+<!-- 폰트: 네트워크가 없어도 시스템 폰트로 자연스럽게 폴백됩니다 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Megrim&family=Orbitron:wght@400;500;700&family=Gothic+A1:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   REVOLV — 스타일
+   팔레트
+   --ink   #05040f  심우주 배경
+   --deep  #12102e  네뷸라 베이스
+   --cyan  #7df9ff  플레이어 (일렉트릭 시안)
+   --amber #ffd166  스파크 (점수 아이템)
+   --rose  #ff2d78  스파이크 (위험)
+   --viola #b26bff  콤보 / 강조
+   ============================================================ */
+:root{
+  --ink:#05040f; --cyan:#7df9ff; --amber:#ffd166;
+  --rose:#ff2d78; --viola:#b26bff;
+  --font-d:'Orbitron','Gothic A1',system-ui,sans-serif;    /* 디스플레이 (SF 기하학) */
+  --font-logo:'Megrim','Orbitron',system-ui,sans-serif;    /* 로고 (모노라인 스켈레톤) */
+  --font-b:'Gothic A1',system-ui,-apple-system,sans-serif;  /* 본문 */
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--ink)}
+body{
+  font-family:var(--font-b);color:#e8e6ff;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none; /* 모바일 스크롤/줌 방지 */
+}
+#game{position:fixed;inset:0;display:block;touch-action:none}
+
+/* ---------- 공통 오버레이 ---------- */
+.overlay{
+  position:fixed;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;
+  padding:24px;z-index:10;
+  opacity:0;pointer-events:none;
+  transition:opacity .45s ease;
+}
+.overlay.show{opacity:1;pointer-events:auto}
+.overlay .panel{display:flex;flex-direction:column;align-items:center;gap:0}
+
+/* ---------- 타이틀 ---------- */
+.logo{
+  font-family:var(--font-logo);font-weight:400; /* Megrim은 단일 웨이트 */
+  font-size:clamp(46px,13vw,96px);letter-spacing:.3em;
+  color:#fff;line-height:1;padding-left:.3em; /* letter-spacing 보정 */
+  text-shadow:0 0 12px var(--cyan),0 0 42px rgba(125,249,255,.55),0 0 90px rgba(178,107,255,.4);
+  animation:logoPulse 3.2s ease-in-out infinite;
+}
+@keyframes logoPulse{
+  0%,100%{text-shadow:0 0 12px var(--cyan),0 0 42px rgba(125,249,255,.55),0 0 90px rgba(178,107,255,.4)}
+  50%{text-shadow:0 0 18px var(--cyan),0 0 60px rgba(125,249,255,.8),0 0 120px rgba(178,107,255,.6)}
+}
+.tagline{
+  margin-top:14px;font-family:var(--font-d);font-weight:400;
+  font-size:clamp(11px,3vw,14px);letter-spacing:.38em;
+  color:rgba(232,230,255,.62);text-transform:uppercase;padding-left:.32em;
+}
+.rules{
+  margin-top:22px;display:flex;gap:26px;font-family:var(--font-d);
+  font-size:clamp(12px,3.2vw,14px);letter-spacing:.08em;
+}
+.rules span{display:flex;align-items:center;gap:8px;color:rgba(232,230,255,.85)}
+.mini-ic{display:inline-block;line-height:0}
+
+/* ---------- 버튼 ---------- */
+.btn{
+  margin-top:38px;font-family:var(--font-d);font-weight:700;
+  font-size:clamp(16px,4vw,19px);letter-spacing:.22em;padding:16px 46px 16px 52px;
+  color:var(--ink);background:var(--cyan);border:none;border-radius:999px;
+  cursor:pointer;position:relative;
+  box-shadow:0 0 22px rgba(125,249,255,.65),0 0 70px rgba(125,249,255,.25);
+  transition:transform .12s ease,box-shadow .2s ease;
+}
+.btn:active{transform:scale(.93);box-shadow:0 0 34px rgba(125,249,255,.95)}
+.hint{margin-top:22px;font-size:12px;letter-spacing:.14em;color:rgba(232,230,255,.42)}
+
+/* ---------- 인게임 HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .3s}
+#hud.show{opacity:1}
+#score{
+  position:absolute;top:calc(18px + env(safe-area-inset-top));left:0;right:0;
+  text-align:center;font-family:var(--font-d);font-weight:500;
+  font-size:clamp(34px,9vw,56px);color:#fff;line-height:1;
+  text-shadow:0 0 18px rgba(125,249,255,.5);
+  transition:transform .1s;
+}
+#score.pop{transform:scale(1.14)}
+#combo{
+  position:absolute;top:calc(88px + env(safe-area-inset-top));left:0;right:0;text-align:center;
+  font-family:var(--font-d);font-weight:700;font-size:clamp(15px,4vw,19px);
+  letter-spacing:.18em;color:var(--viola);
+  text-shadow:0 0 14px rgba(178,107,255,.8);
+  opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;
+}
+#combo.on{opacity:1;transform:translateY(0)}
+#best-hud{
+  position:absolute;top:calc(16px + env(safe-area-inset-top));right:18px;
+  font-family:var(--font-d);font-size:12px;letter-spacing:.16em;
+  color:rgba(232,230,255,.5);text-align:right;
+}
+#best-hud b{display:block;font-size:17px;color:rgba(255,209,102,.85);margin-top:3px}
+#tap-hint{
+  position:absolute;bottom:calc(118px + env(safe-area-inset-bottom));left:0;right:0;
+  text-align:center;font-size:13px;letter-spacing:.3em;color:rgba(232,230,255,.55);
+  animation:hintBlink 1.4s ease-in-out infinite;
+}
+@keyframes hintBlink{0%,100%{opacity:.25}50%{opacity:.85}}
+
+/* ---------- 스킬 버튼 (무적 / 자석) ---------- */
+#skills{
+  position:absolute;bottom:calc(26px + env(safe-area-inset-bottom));
+  left:0;right:0;display:flex;justify-content:center;gap:26px;
+  pointer-events:auto; /* HUD는 pointer-events:none이므로 여기만 활성화 */
+}
+.skill{
+  --p:0;             /* 게이지 진행률 0~1 (JS에서 갱신) */
+  --c:#7df9ff;       /* 게이지 색상 */
+  position:relative;width:66px;height:66px;border-radius:50%;
+  border:none;background:rgba(18,16,46,.78);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-family:var(--font-d);color:#e8e6ff;
+  transition:transform .1s ease,box-shadow .25s ease;
+}
+.skill:active{transform:scale(.88)}
+.skill .ic{line-height:0;color:var(--c);filter:grayscale(1) opacity(.45);transition:filter .25s}
+.skill .ic svg{display:block}
+.skill .lb{font-size:9px;letter-spacing:.14em;color:rgba(232,230,255,.55)}
+/* 원형 게이지 링 (conic-gradient + 마스크) */
+.skill::before{
+  content:'';position:absolute;inset:-4px;border-radius:50%;
+  background:conic-gradient(var(--c) calc(var(--p)*1turn), rgba(232,230,255,.12) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
+  mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));
+}
+.skill.ready .ic{filter:drop-shadow(0 0 5px currentColor)}
+.skill.ready{animation:skillReady 1.1s ease-in-out infinite}
+#sk-shield.ready{box-shadow:0 0 22px rgba(125,249,255,.55)}
+#sk-magnet.ready{box-shadow:0 0 22px rgba(255,209,102,.55)}
+#sk-orbit .ic{filter:drop-shadow(0 0 4px currentColor)} /* 궤도 전환은 항상 사용 가능 */
+.skill.active .ic{filter:none}
+.skill.active{box-shadow:0 0 26px rgba(255,255,255,.6)}
+@keyframes skillReady{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+
+/* ---------- 게임오버 ---------- */
+#over{background:rgba(5,4,15,.55);backdrop-filter:blur(3px)}
+.over-label{
+  font-family:var(--font-d);font-weight:700;letter-spacing:.4em;padding-left:.4em;
+  font-size:clamp(20px,6vw,30px);color:var(--rose);
+  text-shadow:0 0 16px rgba(255,45,120,.9),0 0 60px rgba(255,45,120,.5);
+}
+.over-score{
+  margin-top:16px;font-family:var(--font-d);font-weight:500;
+  font-size:clamp(54px,15vw,104px);line-height:1;color:#fff;
+  text-shadow:0 0 26px rgba(125,249,255,.6);
+}
+.over-best{margin-top:14px;font-family:var(--font-d);font-size:14px;letter-spacing:.2em;color:rgba(255,209,102,.8)}
+#new-record{
+  margin-top:12px;display:none;font-family:var(--font-d);font-weight:700;
+  font-size:15px;letter-spacing:.3em;color:var(--amber);
+  text-shadow:0 0 16px var(--amber);
+  animation:recordFlash .8s ease-in-out infinite;
+}
+#new-record.show{display:block}
+@keyframes recordFlash{0%,100%{opacity:1}50%{opacity:.35}}
+.btn.restart{background:var(--rose);color:#fff;
+  box-shadow:0 0 22px rgba(255,45,120,.7),0 0 70px rgba(255,45,120,.3)}
+.btn.restart:active{box-shadow:0 0 36px rgba(255,45,120,1)}
+
+/* ---------- 사운드 토글 ---------- */
+#btn-sound{
+  position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:30;
+  width:42px;height:42px;border-radius:50%;
+  border:1px solid rgba(232,230,255,.2);background:rgba(18,16,46,.6);
+  font-size:17px;color:#fff;cursor:pointer;
+  transition:transform .1s ease;
+}
+#btn-sound:active{transform:scale(.88)}
+
+/* ---------- 튜토리얼 오버레이 ---------- */
+#tut{position:fixed;inset:0;z-index:30;display:none;background:rgba(5,4,15,.5)}
+#tut.show{display:block}
+#tut.light{background:rgba(5,4,15,.22)} /* 스킬 버튼 소개 시: 버튼이 보이도록 옅게 */
+.tut-card{
+  position:absolute;left:50%;transform:translateX(-50%);
+  width:min(320px,86vw);padding:20px 18px;text-align:center;
+  background:rgba(18,16,46,.96);border:1px solid rgba(125,249,255,.35);
+  border-radius:16px;box-shadow:0 0 30px rgba(125,249,255,.2);
+}
+.tut-card.center{top:50%;transform:translate(-50%,-50%)}
+.tut-card.bottom{bottom:calc(158px + env(safe-area-inset-bottom))}
+/* 스킬 버튼을 가리키는 화살표 꼬리 */
+.tut-card.bottom::after{
+  content:'';position:absolute;bottom:-9px;width:16px;height:16px;
+  background:rgba(18,16,46,.96);
+  border-right:1px solid rgba(125,249,255,.35);
+  border-bottom:1px solid rgba(125,249,255,.35);
+  transform:rotate(45deg);
+}
+.tut-card.point-left::after{left:calc(50% - 54px)}   /* 🛡️ 무적 버튼 방향 */
+.tut-card.point-right::after{left:calc(50% + 38px)}  /* 🧲 자석 버튼 방향 */
+.tut-icon{font-size:34px;line-height:1;color:var(--cyan)}
+.tut-icon svg{display:inline-block;filter:drop-shadow(0 0 6px currentColor)}
+.tut-title{
+  margin-top:10px;font-family:var(--font-d);font-weight:700;
+  font-size:16px;letter-spacing:.24em;padding-left:.24em;color:var(--cyan);
+}
+.tut-body{margin-top:10px;font-size:14px;line-height:1.65;color:rgba(232,230,255,.85)}
+.tut-body b{color:#fff}
+.tut-next{
+  margin-top:14px;font-size:11px;letter-spacing:.22em;color:rgba(125,249,255,.7);
+  animation:hintBlink 1.4s ease-in-out infinite;
+}
+/* 블랙홀 안내: 배경 탭으로 닫히지 않고 SKIP 버튼으로만 닫힘 */
+.tut-skip{display:none}
+#tut.needbtn .tut-skip{display:inline-block;margin-top:16px}
+#tut.needbtn .tut-next{display:none}
+/* 튜토리얼 중 강조되는 스킬 버튼 */
+.skill.spotlight{
+  animation:skillReady .9s ease-in-out infinite;
+  box-shadow:0 0 30px rgba(255,255,255,.85),0 0 60px rgba(125,249,255,.5);
+}
+.skill.spotlight .ic{filter:drop-shadow(0 0 6px currentColor)}
+
+/* ---------- 도움말 페이지 ---------- */
+#help{z-index:40;background:rgba(5,4,15,.7);backdrop-filter:blur(4px)}
+.help-panel{
+  max-width:min(350px,90vw);padding:26px 22px;
+  background:rgba(18,16,46,.94);border:1px solid rgba(125,249,255,.3);
+  border-radius:18px;box-shadow:0 0 40px rgba(125,249,255,.15);
+}
+.help-title{
+  font-family:var(--font-d);font-weight:700;font-size:17px;
+  letter-spacing:.3em;padding-left:.3em;color:#fff;
+  text-shadow:0 0 14px rgba(125,249,255,.6);
+}
+.help-list{margin-top:6px}
+.help-row{
+  display:flex;gap:12px;align-items:flex-start;text-align:left;
+  font-size:13px;line-height:1.55;color:rgba(232,230,255,.85);margin-top:13px;
+}
+.help-row b{color:#fff}
+.help-ic{flex:none;width:26px;text-align:center;font-size:17px;font-family:var(--font-d)}
+.help-ic svg{vertical-align:-3px}
+.btn.small{margin-top:22px;padding:11px 36px;font-size:13px;letter-spacing:.2em}
+
+/* ---------- 언어 선택 버튼 ---------- */
+.lang-row{margin-top:20px;display:flex;gap:10px}
+.lang-btn{
+  padding:7px 18px;border-radius:999px;
+  border:1px solid rgba(232,230,255,.25);background:rgba(18,16,46,.6);
+  color:rgba(232,230,255,.55);font-size:12px;font-family:var(--font-b);
+  cursor:pointer;transition:all .15s;
+}
+.lang-btn:active{transform:scale(.93)}
+.lang-btn.on{
+  color:#05040f;background:var(--cyan);border-color:transparent;
+  font-weight:700;box-shadow:0 0 14px rgba(125,249,255,.5);
+}
+
+/* ---------- 홈 화면 ? 버튼 ---------- */
+.corner-btn{
+  position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;
+  width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(232,230,255,.25);background:rgba(18,16,46,.6);
+  color:#e8e6ff;font-family:var(--font-d);font-weight:700;font-size:17px;
+  cursor:pointer;transition:transform .1s;
+}
+.corner-btn:active{transform:scale(.88)}
+
+/* ---------- BGM 토글 버튼 ---------- */
+#btn-music{
+  position:fixed;top:calc(16px + env(safe-area-inset-top));left:16px;z-index:20;
+  width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(232,230,255,.25);
+  background:rgba(18,16,46,.6);color:#e8e6ff;
+  font-size:18px;line-height:1;cursor:pointer;
+  transition:opacity .2s,transform .1s;
+}
+#btn-music:active{transform:scale(.88)}
+#btn-music.off{opacity:.35}
+#btn-music.off::after{
+  content:'';position:absolute;left:50%;top:20%;width:2px;height:60%;
+  background:#e8e6ff;transform:rotate(45deg);border-radius:2px;
+}
+
+/* 모션 최소화 설정 존중 */
+@media (prefers-reduced-motion:reduce){
+  .logo,#tap-hint,#new-record,.skill.ready,.skill.spotlight,.tut-next{animation:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- BGM 토글 -->
+<button id="btn-music" aria-label="배경음악 켜기/끄기">♪</button>
+
+<!-- 사운드 토글 (BGM + 효과음) -->
+<button id="btn-sound" aria-label="사운드 켜기/끄기">🔊</button>
+
+<!-- 인게임 HUD -->
+<div id="hud">
+  <div id="score">0</div>
+  <div id="combo">COMBO ×2</div>
+  <div id="best-hud">BEST<b id="best-val">0</b></div>
+  <div id="tap-hint"></div>
+  <div id="skills">
+    <button class="skill" id="sk-shield" style="--c:#7df9ff" aria-label="무적">
+      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.6v5.1c0 4.6-2.9 8.2-7 9.8-4.1-1.6-7-5.2-7-9.8V5.6L12 3z"/><path d="M12 3v17.5" opacity=".4"/></svg></span><span class="lb" id="lb-shield"></span>
+    </button>
+    <button class="skill" id="sk-orbit" style="--c:#b26bff;--p:1;display:none" aria-label="궤도 전환">
+      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 12a6.8 6.8 0 0 1 11.9-4.5"/><path d="M18.8 12a6.8 6.8 0 0 1-11.9 4.5"/><path d="M17.4 4.4l-.2 3.4-3.4-.7"/><path d="M6.6 19.6l.2-3.4 3.4.7"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg></span><span class="lb" id="lb-orbit"></span>
+    </button>
+    <button class="skill" id="sk-magnet" style="--c:#ffd166" aria-label="자석">
+      <span class="ic"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><path d="M6 3h4.6v8a1.4 1.4 0 0 0 2.8 0V3H18v8a6 6 0 0 1-12 0V3z"/><path d="M6 3h4.6v3H6z" opacity=".45"/><path d="M13.4 3H18v3h-4.6z" opacity=".45"/></svg></span><span class="lb" id="lb-magnet"></span>
+    </button>
+  </div>
+</div>
+
+<!-- 시작 화면 -->
+<div class="overlay show" id="menu">
+  <button class="corner-btn" id="btn-help-open" aria-label="게임 설명 보기">?</button>
+  <div class="panel">
+    <div class="logo">REVOLV</div>
+    <div class="tagline">One Tap · Reverse Orbit</div>
+    <button class="btn" id="btn-start">START</button>
+    <div class="hint" id="menu-hint"></div>
+    <div class="rules">
+      <span><span class="mini-ic" style="filter:drop-shadow(0 0 6px rgba(255,209,102,.8))"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><defs><linearGradient id="rvSparkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6dc"/><stop offset="0.5" stop-color="#ffd166"/><stop offset="1" stop-color="#ff9f43"/></linearGradient></defs><path d="M12 1.8L18.2 12L12 22.2L5.8 12Z" transform="rotate(28 12 12)" stroke="rgba(255,209,102,.5)" stroke-width="1"/><path d="M12 3.8L16.9 12L12 20.2L7.1 12Z" fill="url(#rvSparkG)"/><path d="M12 3.8V20.2M7.1 12H16.9" stroke="rgba(255,255,255,.55)" stroke-width="1"/></svg></span><span id="lg-spark"></span></span>
+      <span><span class="mini-ic" style="filter:drop-shadow(0 0 6px rgba(255,45,120,.8))"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(22 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(67 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(112 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(157 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(202 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(247 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(292 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(337 12 12)"/><circle cx="12" cy="12" r="4.4" fill="#2a0716" stroke="#ff78aa" stroke-width="1.1"/><circle cx="12" cy="12" r="1.7" fill="#ff5a96"/></svg></span><span id="lg-spike"></span></span>
+    </div>
+    <div class="lang-row">
+      <button class="lang-btn" id="lang-en">English</button>
+      <button class="lang-btn" id="lang-ko">한국어</button>
+    </div>
+  </div>
+</div>
+
+<!-- 게임 오버 화면 -->
+<div class="overlay" id="over">
+  <div class="panel">
+    <div class="over-label">GAME OVER</div>
+    <div class="over-score" id="final-score">0</div>
+    <div id="new-record">★ NEW RECORD ★</div>
+    <div class="over-best" id="final-best">BEST 0</div>
+    <button class="btn restart" id="btn-restart">RETRY</button>
+    <div class="hint" id="over-hint"></div>
+  </div>
+</div>
+
+<!-- 튜토리얼 카드 (첫 판 / 첫 블랙홀) -->
+<div id="tut">
+  <div class="tut-card center" id="tut-card">
+    <div class="tut-icon" id="tut-icon">🌀</div>
+    <div class="tut-title" id="tut-title"></div>
+    <div class="tut-body" id="tut-body"></div>
+    <div class="tut-next" id="tut-next"></div>
+    <button class="btn small tut-skip" id="btn-tut-skip">SKIP ▸</button>
+  </div>
+</div>
+
+<!-- 도움말 페이지 (홈 화면 ? 버튼으로 열기) -->
+<div class="overlay" id="help">
+  <div class="panel help-panel">
+    <div class="help-title">HOW TO PLAY</div>
+    <div class="help-list">
+      <div class="help-row"><span class="help-ic" style="color:var(--cyan)">🌀</span>
+        <div id="h-tap"></div></div>
+      <div class="help-row"><span class="help-ic" style="filter:drop-shadow(0 0 6px rgba(255,209,102,.8))"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><defs><linearGradient id="rvSparkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6dc"/><stop offset="0.5" stop-color="#ffd166"/><stop offset="1" stop-color="#ff9f43"/></linearGradient></defs><path d="M12 1.8L18.2 12L12 22.2L5.8 12Z" transform="rotate(28 12 12)" stroke="rgba(255,209,102,.5)" stroke-width="1"/><path d="M12 3.8L16.9 12L12 20.2L7.1 12Z" fill="url(#rvSparkG)"/><path d="M12 3.8V20.2M7.1 12H16.9" stroke="rgba(255,255,255,.55)" stroke-width="1"/></svg></span>
+        <div id="h-spark"></div></div>
+      <div class="help-row"><span class="help-ic" style="filter:drop-shadow(0 0 6px rgba(255,45,120,.8))"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(22 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(67 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(112 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(157 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(202 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(247 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(292 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(337 12 12)"/><circle cx="12" cy="12" r="4.4" fill="#2a0716" stroke="#ff78aa" stroke-width="1.1"/><circle cx="12" cy="12" r="1.7" fill="#ff5a96"/></svg></span>
+        <div id="h-spike"></div></div>
+      <div class="help-row"><span class="help-ic" style="color:var(--cyan)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.6v5.1c0 4.6-2.9 8.2-7 9.8-4.1-1.6-7-5.2-7-9.8V5.6L12 3z"/><path d="M12 3v17.5" opacity=".4"/></svg></span>
+        <div id="h-shield"></div></div>
+      <div class="help-row"><span class="help-ic" style="color:var(--amber)"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none"><path d="M6 3h4.6v8a1.4 1.4 0 0 0 2.8 0V3H18v8a6 6 0 0 1-12 0V3z"/><path d="M6 3h4.6v3H6z" opacity=".45"/><path d="M13.4 3H18v3h-4.6z" opacity=".45"/></svg></span>
+        <div id="h-magnet"></div></div>
+      <div class="help-row"><span class="help-ic">🕳️</span>
+        <div id="h-bh"></div></div>
+      <div class="help-row"><span class="help-ic">🌟</span>
+        <div id="h-fever"></div></div>
+      <div class="help-row"><span class="help-ic">☄️</span>
+        <div id="h-comet"></div></div>
+      <div class="help-row"><span class="help-ic" style="color:var(--viola)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 12a6.8 6.8 0 0 1 11.9-4.5"/><path d="M18.8 12a6.8 6.8 0 0 1-11.9 4.5"/><path d="M17.4 4.4l-.2 3.4-3.4-.7"/><path d="M6.6 19.6l.2-3.4 3.4.7"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg></span>
+        <div id="h-dual"></div></div>
+    </div>
+    <button class="btn small" id="btn-help-close"></button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   REVOLV — 궤도 반전 아케이드
+   조작: 탭/클릭/스페이스 = 궤도 회전 방향 반전
+   목표: 스파크(◆)를 먹고 스파이크(✕)를 피해 최고 점수 달성
+   ============================================================ */
+
+// ---------- 캔버스 / 화면 ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, CX = 0, CY = 0, R = 0, Rbase = 0; // R = 실효 궤도 반지름 (블랙홀 시 축소)
+
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2); // 성능 위해 DPR 상한 2
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width  = Math.round(W * dpr);   // 내부 해상도 (선명도용, DPR 배율)
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width  = W + 'px';        // 화면 표시 크기는 뷰포트와 동일하게
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  CX = W / 2; CY = H / 2 - H * 0.02; // 하단 스킬 버튼과의 간격 확보를 위해 위로 (기존 대비 약 5%p 상향)
+  Rbase = Math.min(W, H) * 0.32;
+  R = Rbase * S.orbitK;
+  makeStars(); // 해상도 변경 시 별 재배치
+}
+window.addEventListener('resize', resize);
+
+// ---------- 유틸 ----------
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
+const rand  = (a, b) => a + Math.random() * (b - a);
+// 각도 차이를 [-PI, PI] 범위로 정규화
+function angDiff(a, b){
+  let d = (a - b) % TAU;
+  if (d >  Math.PI) d -= TAU;
+  if (d < -Math.PI) d += TAU;
+  return d;
+}
+
+// ---------- 최고 점수 저장 (저장 불가 환경에서는 메모리 폴백) ----------
+let memBest = 0;
+function loadBest(){
+  try { return Number(localStorage.getItem('revolv_best')) || 0; }
+  catch(e){ return memBest; }
+}
+function saveBest(v){
+  memBest = v;
+  try { localStorage.setItem('revolv_best', String(v)); } catch(e){}
+}
+
+
+/* ============================================================
+   다국어 (한국어/영어)
+   - 기본: 기기 언어가 ko면 한국어, 그 외 영어
+   - 시작 화면에서 선택 가능, 선택은 저장됨
+   ============================================================ */
+const INL_A = '<span style="display:inline-block;vertical-align:-2px;line-height:0;filter:drop-shadow(0 0 6px rgba(255,209,102,.8))"><svg viewBox="0 0 24 24" width="14" height="14" fill="none"><defs><linearGradient id="rvSparkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6dc"/><stop offset="0.5" stop-color="#ffd166"/><stop offset="1" stop-color="#ff9f43"/></linearGradient></defs><path d="M12 1.8L18.2 12L12 22.2L5.8 12Z" transform="rotate(28 12 12)" stroke="rgba(255,209,102,.5)" stroke-width="1"/><path d="M12 3.8L16.9 12L12 20.2L7.1 12Z" fill="url(#rvSparkG)"/><path d="M12 3.8V20.2M7.1 12H16.9" stroke="rgba(255,255,255,.55)" stroke-width="1"/></svg></span>';
+const INL_R = '<span style="display:inline-block;vertical-align:-2px;line-height:0;filter:drop-shadow(0 0 6px rgba(255,45,120,.8))"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(22 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(67 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(112 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(157 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(202 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(247 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(292 12 12)"/><path d="M12 10.4L21.6 12L12 13.6Z" fill="#ff2d78" transform="rotate(337 12 12)"/><circle cx="12" cy="12" r="4.4" fill="#2a0716" stroke="#ff78aa" stroke-width="1.1"/><circle cx="12" cy="12" r="1.7" fill="#ff5a96"/></svg></span>';
+const L = {
+  ko: {
+    menuHint: '탭/스페이스 = 방향 전환 · Q 무적 · E 자석',
+    lgSpark: '스파크 획득', lgSpike: '스파이크 회피',
+    lbShield: '무적', lbMagnet: '자석', lbOrbit: '궤도',
+    tapHint: '탭 = 방향 전환',
+    overHint: '화면을 탭해도 바로 재시작됩니다',
+    tutNext: '탭하여 계속 ▸',
+    close: '닫기',
+    x2: '점수 ×2',
+    tutT: ['궤도 반전', '무적', '자석'],
+    tutB: [
+      '화면을 탭하면 회전 방향이 <b>반대로</b> 바뀝니다.<br>' + INL_A + ' 스파크를 모으고 ' + INL_R + ' 스파이크를 피하세요!',
+      '게이지가 <b>7초</b>마다 충전됩니다.<br>발동하면 <b>3초간</b> 스파이크를<br>파괴하며 통과합니다!',
+      '가득 차면 궤도 위의 <b>모든 스파크</b>를<br>한 번에 빨아들여 콤보를 쌓습니다!'
+    ],
+    bhT: '블랙홀',
+    bhB: '블랙홀이 발동하면 궤도가 <b>70%</b>로<br>줄어듭니다! <b>10초</b>간 더 정밀하게<br>컨트롤하세요.',
+    cometT: '혜성',
+    cometB: '이제부터 <b>혜성</b>이 궤도를 관통합니다!<br>경고선이 그어진 뒤 <b>1.2초</b> 후 돌진 —<br>경로에서 벗어나세요.',
+    dualT: '듀얼 오빗',
+    dualB: '<b>바깥 궤도</b>가 열렸습니다!<br>궤도 버튼(PC: <b>S</b>)으로 궤도를 전환하세요.<br>잠시 스파이크 없이 자유롭게 연습해 보세요!',
+    help: {
+      tap: '<b>탭 = 방향 반전</b><br>오브가 궤도를 자동으로 돕니다. 탭할 때마다 회전 방향이 바뀝니다.',
+      spark: '<b>스파크 획득</b><br>10점 × 콤보. 4초 안에 연속으로 먹으면 콤보가 올라갑니다.',
+      spike: '<b>스파이크 회피</b><br>점선 경고 후 무장됩니다. 닿으면 게임 오버!',
+      shield: '<b>무적</b> (PC: Q)<br>7초마다 충전. 발동하면 3초간 스파이크를 파괴하며 통과합니다.',
+      magnet: '<b>자석</b> (PC: E)<br>10초마다 충전. 궤도 위 모든 스파크를 한 번에 흡수합니다.',
+      bh: '<b>블랙홀</b> (5000·15000점…)<br>10초간 궤도가 70%로 줄어듭니다.',
+      fever: '<b>슈퍼노바 피버</b> (10000·20000점…)<br>10초간 스파크 5개 + 점수 ×2 + 속도 상승!',
+      comet: '<b>혜성</b> (19000점~)<br>경고선이 그어진 뒤 궤도를 관통합니다. 경로를 피하세요!',
+      dual: '<b>듀얼 오빗</b> (12000점~) (PC: S)<br>바깥 궤도가 열립니다. 버튼으로 궤도를 전환하세요.'
+    }
+  },
+  en: {
+    menuHint: 'TAP/SPACE = Reverse · Q Shield · E Magnet',
+    lgSpark: 'Collect Sparks', lgSpike: 'Avoid Spikes',
+    lbShield: 'SHIELD', lbMagnet: 'MAGNET', lbOrbit: 'ORBIT',
+    tapHint: 'TAP = REVERSE',
+    overHint: 'Tap anywhere to retry instantly',
+    tutNext: 'Tap to continue ▸',
+    close: 'CLOSE',
+    x2: 'SCORE ×2',
+    tutT: ['Reverse Orbit', 'Shield', 'Magnet'],
+    tutB: [
+      'Tap to flip your orbit <b>direction</b>.<br>' + INL_A + ' Collect sparks, ' + INL_R + ' avoid spikes!',
+      'Charges every <b>7 seconds</b>.<br>Activate to smash through spikes<br>for <b>3 seconds</b>!',
+      'When full, it pulls in <b>every spark</b><br>on the orbit — instant combo!'
+    ],
+    bhT: 'Black Hole',
+    bhB: 'A black hole shrinks the orbit<br>to <b>70%</b>! Stay precise<br>for <b>10 seconds</b>.',
+    cometT: 'Comet',
+    cometB: '<b>Comets</b> now pierce the orbit!<br>A warning line appears, then it<br>charges — get out of its path.',
+    dualT: 'Dual Orbit',
+    dualB: 'The <b>outer ring</b> is open!<br>Switch orbits with the ORBIT button (PC: <b>S</b>).<br>Practice freely — no spikes for a bit!',
+    help: {
+      tap: '<b>TAP = Reverse</b><br>Your orb orbits automatically. Each tap reverses its direction.',
+      spark: '<b>Collect Sparks</b><br>10 pts × combo. Chain pickups within 4 seconds to raise your combo.',
+      spike: '<b>Avoid Spikes</b><br>They arm after a dashed warning. One touch = game over!',
+      shield: '<b>Shield</b> (PC: Q)<br>Charges every 7s. Smash through spikes for 3 seconds.',
+      magnet: '<b>Magnet</b> (PC: E)<br>Charges every 10s. Pulls in every spark on the orbit at once.',
+      bh: '<b>Black Hole</b> (5000·15000 pts…)<br>Shrinks the orbit to 70% for 10 seconds.',
+      fever: '<b>Supernova Fever</b> (10000·20000 pts…)<br>10s of 5 sparks + double score + extra speed!',
+      comet: '<b>Comet</b> (19000 pts~)<br>Pierces the orbit after a warning line. Dodge its path!',
+      dual: '<b>Dual Orbit</b> (12000 pts~) (PC: S)<br>An outer ring opens. Switch orbits with the button.'
+    }
+  }
+};
+let lang = 'en';
+try {
+  const savedLang = localStorage.getItem('revolv_lang');
+  if (savedLang === 'ko' || savedLang === 'en') lang = savedLang;
+  else if ((navigator.language || '').toLowerCase().indexOf('ko') === 0) lang = 'ko';
+} catch(e){
+  if ((navigator.language || '').toLowerCase().indexOf('ko') === 0) lang = 'ko';
+}
+function T(k){ return L[lang][k]; }
+function applyLang(){
+  const d = L[lang];
+  try { document.documentElement.lang = lang; } catch(e){}
+  $('menu-hint').textContent = d.menuHint;
+  $('lg-spark').textContent = d.lgSpark;
+  $('lg-spike').textContent = d.lgSpike;
+  $('lb-shield').textContent = d.lbShield;
+  $('lb-magnet').textContent = d.lbMagnet;
+  $('lb-orbit').textContent = d.lbOrbit;
+  $('tap-hint').textContent = d.tapHint;
+  $('over-hint').textContent = d.overHint;
+  $('tut-next').textContent = d.tutNext;
+  $('btn-help-close').textContent = d.close;
+  for (const k of Object.keys(d.help)) $('h-' + k).innerHTML = d.help[k];
+  $('lang-en').classList.toggle('on', lang === 'en');
+  $('lang-ko').classList.toggle('on', lang === 'ko');
+}
+function setLang(l){
+  lang = l;
+  try { localStorage.setItem('revolv_lang', l); } catch(e){}
+  applyLang();
+}
+
+// ---------- 사운드 (Web Audio API, 외부 파일 없음) ----------
+let AC = null;
+function audioCtx(){
+  if (!AC){
+    try { AC = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  if (AC.state === 'suspended') AC.resume();
+  ensureMusic(); // 최초 사용자 입력 시 BGM 시작 (자동재생 정책 준수)
+  return AC;
+}
+// ---------- 음소거 ----------
+let muted = false;
+try { muted = localStorage.getItem('revolv_mute') === '1'; } catch(e){}
+
+// 단일 톤: 주파수, 길이, 파형, 볼륨, (선택) 슬라이드 목표 주파수
+function tone(freq, dur, type, vol, slideTo){
+  if (muted) return;
+  const ac = audioCtx(); if (!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+// 노이즈 버스트 (충돌음용)
+function noiseBurst(dur, vol){
+  if (muted) return;
+  const ac = audioCtx(); if (!ac) return;
+  const t = ac.currentTime;
+  const len = Math.floor(ac.sampleRate * dur);
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const g = ac.createGain(); g.gain.value = vol;
+  const f = ac.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(2400, t);
+  f.frequency.exponentialRampToValueAtTime(120, t + dur);
+  src.connect(f).connect(g).connect(ac.destination);
+  src.start(t);
+}
+const sndClick   = () => tone(300, 0.07, 'square', 0.12);
+const sndReverse = () => tone(170, 0.05, 'triangle', 0.09);
+function sndStart(){
+  [330, 440, 660].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'sine', 0.2), i * 85));
+}
+function sndCollect(combo){
+  // 콤보가 오를수록 음이 올라가 긴장감을 강화
+  const f = 440 * Math.pow(1.059, Math.min(combo, 20));
+  tone(f, 0.12, 'sine', 0.2, f * 1.5);
+  tone(f * 2, 0.08, 'sine', 0.06);
+}
+function sndDeath(){
+  noiseBurst(0.4, 0.35);
+  tone(200, 0.5, 'sawtooth', 0.22, 50);
+}
+function sndGameOver(){
+  [392, 311, 233, 155].forEach((f, i) => setTimeout(() => tone(f, 0.22, 'triangle', 0.16), i * 130));
+}
+function sndRecord(){
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.16, 'sine', 0.18), i * 95));
+}
+// 스킬 / 블랙홀 효과음
+function sndShield(){ tone(520, 0.3, 'sine', 0.16, 1040); tone(780, 0.25, 'sine', 0.08, 1560); }
+function sndShieldEnd(){ tone(500, 0.14, 'triangle', 0.1, 250); }
+function sndMagnet(){ tone(200, 0.35, 'sawtooth', 0.1, 900); tone(400, 0.3, 'sine', 0.08, 1200); }
+function sndBlock(){ tone(140, 0.1, 'square', 0.15); noiseBurst(0.08, 0.12); }
+function sndBlackhole(){ tone(130, 1.1, 'sawtooth', 0.18, 35); noiseBurst(0.6, 0.14); }
+function sndBHEnd(){ tone(80, 0.4, 'sine', 0.12, 330); }
+function sndFever(){
+  [523, 659, 784, 1047, 1319].forEach((f, i) => setTimeout(() => tone(f, 0.14, 'sine', 0.17), i * 70));
+}
+function sndFeverEnd(){ tone(880, 0.2, 'sine', 0.1, 440); }
+function sndCometWarn(){ tone(1100, 0.09, 'square', 0.1); setTimeout(() => tone(1100, 0.09, 'square', 0.1), 140); }
+function sndSwitch(){ tone(300, 0.09, 'triangle', 0.12, 520); }
+
+/* ============================================================
+   BGM — 절차 생성 앰비언트 신스 (외부 파일 없음)
+   구성: 디튠 소우 패드(로우패스) + 서브 베이스 + 트라이앵글
+   아르페지오(점8분 딜레이 + 피드백) + 하이 쉬머
+   난이도↑ → 필터 개방(밝아짐), 블랙홀 중 → 어두워짐
+   ============================================================ */
+const MUSIC_VOL = 0.22;
+const BPM = 72, BAR = (60 / BPM) * 4; // 한 마디 ≈ 3.33초
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+// 코드 진행: Am9 → Fmaj7 → Cmaj7 → Em7 (몽환적 순환)
+const CHORDS = [
+  { root: 45, tones: [57, 60, 64, 67, 71] }, // A2 | A3 C4 E4 G4 B4
+  { root: 41, tones: [57, 60, 65, 69, 72] }, // F2 | A3 C4 F4 A4 C5
+  { root: 36, tones: [55, 59, 64, 67, 72] }, // C2 | G3 B3 E4 G4 C5
+  { root: 40, tones: [55, 59, 62, 67, 71] }, // E2 | G3 B3 D4 G4 B4
+];
+let musicOn = true;
+try { musicOn = localStorage.getItem('revolv_music') !== '0'; } catch(e){}
+let musicReady = false, musicGain = null, padFilter = null, delaySend = null;
+let nextBarT = 0, barIdx = 0;
+
+function ensureMusic(){
+  if (musicReady || !AC) return;
+  musicReady = true;
+  musicGain = AC.createGain();
+  musicGain.gain.value = 0;
+  musicGain.connect(AC.destination);
+  // 패드 전용 로우패스 (난이도에 따라 개방)
+  padFilter = AC.createBiquadFilter();
+  padFilter.type = 'lowpass'; padFilter.frequency.value = 560; padFilter.Q.value = 0.7;
+  padFilter.connect(musicGain);
+  // 점8분 딜레이 + 피드백 (몽환감의 핵심)
+  delaySend = AC.createGain(); delaySend.gain.value = 0.5;
+  const dly = AC.createDelay(1.0); dly.delayTime.value = (BAR / 8) * 1.5;
+  const fb  = AC.createGain(); fb.gain.value = 0.38;
+  const wet = AC.createGain(); wet.gain.value = 0.6;
+  delaySend.connect(dly); dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(musicGain);
+  nextBarT = AC.currentTime + 0.1; barIdx = 0;
+  setInterval(musicLoop, 300); // 룩어헤드 스케줄러
+  if (musicOn) setMusicVol(MUSIC_VOL, 1.5);
+}
+function musicLoop(){
+  if (!AC) return;
+  if (!musicOn){ nextBarT = Math.max(nextBarT, AC.currentTime + 0.1); return; }
+  while (nextBarT < AC.currentTime + 1.6){
+    scheduleBar(nextBarT, CHORDS[barIdx % CHORDS.length]);
+    barIdx++;
+    nextBarT += BAR;
+  }
+}
+function scheduleBar(t0, ch){
+  // 필터: 난이도로 개방, 블랙홀 중 어둡게
+  const cutoff = clamp(520 + difficulty() * 115 + (S.feverT > 0 ? 650 : 0), 520, 2600) * (S.bhActive ? 0.55 : 1);
+  padFilter.frequency.setTargetAtTime(cutoff, t0, 0.6);
+  // --- 패드: 3화음 × 디튠 페어 ---
+  for (let i = 0; i < 3; i++){
+    const f = mtof(ch.tones[i]);
+    for (const det of [-5, 5]){
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = det;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.026, t0 + BAR * 0.35);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + BAR * 1.05);
+      o.connect(g).connect(padFilter);
+      o.start(t0); o.stop(t0 + BAR * 1.1);
+    }
+  }
+  // --- 서브 베이스 ---
+  const b = AC.createOscillator(), bg = AC.createGain();
+  b.type = 'sine'; b.frequency.value = mtof(ch.root);
+  bg.gain.setValueAtTime(0.0001, t0);
+  bg.gain.linearRampToValueAtTime(0.085, t0 + 0.12);
+  bg.gain.setValueAtTime(0.085, t0 + BAR * 0.6);
+  bg.gain.linearRampToValueAtTime(0.0001, t0 + BAR);
+  b.connect(bg).connect(musicGain);
+  b.start(t0); b.stop(t0 + BAR + 0.05);
+  // --- 아르페지오 (8분음표, 딜레이 센드) ---
+  const pat = [0, 2, 4, 3, 1, 4, 2, 3];
+  for (let i = 0; i < 8; i++){
+    if (Math.random() < 0.15) continue; // 가끔 쉼표 — 기계적이지 않게
+    const t = t0 + i * (BAR / 8);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'triangle';
+    o.frequency.value = mtof(ch.tones[pat[i]] + 12);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    o.connect(g);
+    g.connect(musicGain);
+    g.connect(delaySend);
+    o.start(t); o.stop(t + 0.55);
+  }
+  // --- 하이 쉬머 (두 마디에 한 번, 긴 잔향) ---
+  if (barIdx % 2 === 0){
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine'; o.frequency.value = mtof(ch.tones[4] + 12);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(0.016, t0 + BAR * 0.5);
+    g.gain.linearRampToValueAtTime(0.0001, t0 + BAR * 2);
+    o.connect(g).connect(musicGain);
+    o.start(t0); o.stop(t0 + BAR * 2 + 0.1);
+  }
+}
+function setMusicVol(v, t){
+  if (musicGain && AC) musicGain.gain.setTargetAtTime(v, AC.currentTime, t || 0.3);
+}
+function toggleMusic(){
+  musicOn = !musicOn;
+  try { localStorage.setItem('revolv_music', musicOn ? '1' : '0'); } catch(e){}
+  document.getElementById('btn-music').classList.toggle('off', !musicOn);
+  if (musicOn){ audioCtx(); setMusicVol(S.mode === 'over' || S.mode === 'dying' ? 0.05 : MUSIC_VOL); }
+  else setMusicVol(0, 0.2);
+}
+
+/* ============================================================
+   BGM — 절차적 앰비언트 음악 (외부 파일 없음)
+   구성: 느린 패드(디튠 2겹) + 사인 베이스 + 에코 아르페지오 + 고음 스파클
+   진행: Am7 → Fmaj7 → Cmaj7 → Em7 (몽환적 4코드 루프, 약 15초 주기)
+   난이도가 오르면 필터가 밝아지고, 블랙홀 중엔 어둡게 잠깁니다.
+   ============================================================ */
+const BGM_VOL = 0.16;
+const BGM_STEP = 0.235; // 8분음표 길이 (약 64 BPM 셔플감)
+// 음정은 A4(440Hz) 기준 반음 오프셋으로 표기
+const noteF = semi => 440 * Math.pow(2, semi / 12);
+const PROG = [
+  { bass: -24, pad: [-12, -9, -5],  arp: [-9, -5, -2, 3]  },  // Am7  (+C5)
+  { bass: -28, pad: [-16, -12, -9], arp: [-12, -9, -5, 0] },  // Fmaj7(+A4)
+  { bass: -21, pad: [-9, -5, -2],   arp: [-5, -2, 2, 7]   },  // Cmaj7(+E5)
+  { bass: -29, pad: [-17, -14, -10],arp: [-10, -7, -2, 5] },  // Em7  (+D5)
+];
+const ARP_PAT = [0,2,1,3, 2,0,3,1, 0,2,1,3, 2,3,1,2];
+
+const BGM = { on: false, timer: null, next: 0, step: 0, nodes: null };
+
+function bgmVoice(freq, t0, dur, type, vol, dest, attack){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type; o.frequency.value = freq;
+  const a = attack || 0.02;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + a);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g).connect(dest);
+  o.start(t0); o.stop(t0 + dur + 0.1);
+}
+
+function bgmStart(){
+  const ac = audioCtx(); if (!ac || BGM.on) return;
+  if (!BGM.nodes){
+    const master = ac.createGain();
+    master.gain.value = muted ? 0 : BGM_VOL;
+    const filter = ac.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 1000; filter.Q.value = 0.6;
+    const delay = ac.createDelay(1); delay.delayTime.value = 0.34;
+    const fb = ac.createGain(); fb.gain.value = 0.38; // 에코 피드백
+    delay.connect(fb).connect(delay);
+    delay.connect(filter);
+    filter.connect(master).connect(ac.destination);
+    BGM.nodes = { master, filter, delay, dry: filter };
+  }
+  BGM.on = true;
+  BGM.step = 0;
+  BGM.next = ac.currentTime + 0.1;
+  BGM.nodes.master.gain.setTargetAtTime(muted ? 0 : BGM_VOL, ac.currentTime, 0.4);
+  BGM.timer = setInterval(bgmTick, 60);
+}
+
+function bgmStop(fade){
+  if (!BGM.on) return;
+  BGM.on = false;
+  clearInterval(BGM.timer);
+  if (BGM.nodes && AC) BGM.nodes.master.gain.setTargetAtTime(0, AC.currentTime, fade || 0.5);
+}
+
+// 룩어헤드 스케줄러: 0.35초 앞까지 미리 예약해 타이밍 안정성 확보
+function bgmTick(){
+  if (!AC || !BGM.on) return;
+  while (BGM.next < AC.currentTime + 0.35){
+    bgmScheduleStep(BGM.step, BGM.next);
+    BGM.step++;
+    BGM.next += BGM_STEP;
+  }
+}
+
+function bgmScheduleStep(step, t){
+  const n = BGM.nodes;
+  const lvl = difficulty();
+  const ch = PROG[Math.floor(step / 16) % PROG.length];
+  const loc = step % 16;
+
+  if (loc === 0){
+    // 필터 밝기: 레벨이 오르면 밝게, 블랙홀 중에는 어둡게 잠김
+    const cut = S.bhActive ? 520 : 1000 + lvl * 130;
+    n.filter.frequency.setTargetAtTime(cut, t, 0.8);
+    // 패드: 디튠 2겹 × 3음 (느린 어택으로 몽환감)
+    for (const s of ch.pad){
+      const f = noteF(s);
+      bgmVoice(f,         t, 4.4, 'triangle', 0.05, n.dry, 1.4);
+      bgmVoice(f * 1.005, t, 4.4, 'sawtooth', 0.018, n.dry, 1.7);
+    }
+    // 베이스
+    bgmVoice(noteF(ch.bass), t, 3.6, 'sine', 0.1, n.dry, 0.4);
+  }
+  // 아르페지오: 에코 딜레이를 타고 흩어짐. 레벨↑ = 밀도↑
+  if (Math.random() < 0.55 + lvl * 0.03){
+    const oct = (loc % 8 === 6) ? 12 : 0; // 가끔 한 옥타브 위로 도약
+    const f = noteF(ch.arp[ARP_PAT[loc]] + oct);
+    bgmVoice(f, t, 0.5, 'sine', 0.07, n.delay, 0.01);
+    bgmVoice(f, t, 0.5, 'triangle', 0.028, n.dry, 0.01);
+  }
+  // 스파클: 드물게 반짝이는 고음
+  if (loc === 12 && Math.random() < 0.4){
+    bgmVoice(noteF(ch.arp[3] + 24), t, 1.3, 'sine', 0.024, n.delay, 0.06);
+  }
+}
+
+// ---------- 음소거 토글 ----------
+function setMuted(m){
+  muted = m;
+  $('btn-sound').textContent = m ? '🔇' : '🔊';
+  if (BGM.nodes && AC){
+    BGM.nodes.master.gain.setTargetAtTime((m || !BGM.on) ? 0 : BGM_VOL, AC.currentTime, 0.1);
+  }
+  try { localStorage.setItem('revolv_mute', m ? '1' : '0'); } catch(e){}
+}
+
+// ---------- 스킬 / 블랙홀 설정 ----------
+const SHIELD_CD = 7;   // 무적 게이지 충전 시간 (초)
+const SHIELD_DUR = 3;  // 무적 지속 시간 (초)
+const MAGNET_CD = 10;  // 자석 게이지 충전 시간 (초)
+const EVENT_STEP = 5000; // 이벤트 발동 간격 (블랙홀/피버 교차)
+const BH_DUR = 10;       // 블랙홀 지속 시간 (초)
+const BH_SHRINK = 0.7;   // 블랙홀 시 궤도 축소 비율
+const FEVER_DUR = 10;    // 슈퍼노바 피버 지속 시간 (초)
+const FEVER_MULT = 2;    // 피버 중 점수 배율
+const COMET_AT = 19000;  // 혜성 활성화 점수
+const DUAL_AT = 12000;   // 듀얼 오빗 해금 점수
+const RING_OUT = 1.35;   // 두 번째(바깥) 궤도 반지름 비율
+
+// ---------- 게임 상태 ----------
+const S = {
+  mode: 'menu',      // menu | playing | dying | over
+  score: 0,
+  best: loadBest(),
+  combo: 0,
+  comboTimer: 0,     // 콤보 유지 시간 (초)
+  collected: 0,      // 획득한 스파크 개수 (난이도 기준)
+  level: 0,
+  time: 0,           // 플레이 경과 시간
+  dyingT: 0,         // 사망 연출 타이머
+  overLock: 0,       // 게임오버 직후 오입력 방지
+  shieldGauge: 0,    // 무적 게이지 (0 ~ SHIELD_CD)
+  shieldT: 0,        // 무적 남은 시간
+  magnetGauge: 0,    // 자석 게이지 (0 ~ MAGNET_CD)
+  nextEvent: EVENT_STEP, // 다음 이벤트 발동 점수
+  eventIdx: 0,       // 짝수=블랙홀, 홀수=피버
+  bhActive: false,   // 블랙홀 활성 여부
+  bhT: 0,            // 블랙홀 남은 시간
+  feverT: 0,         // 슈퍼노바 피버 남은 시간
+  cometOn: false,    // 혜성 시스템 활성 여부
+  dual: false,       // 듀얼 오빗 해금 여부
+  orbitCd: 0,        // 궤도 전환 쿨다운
+  orbitK: 1,         // 궤도 반지름 배율 (블랙홀 시 0.7로 수렴)
+  paused: false,     // 튜토리얼 등으로 게임 로직 일시정지
+};
+
+// 플레이어 (궤도 위의 오브)
+// ring: 0=바깥 궤도, 1=안쪽 궤도(듀얼 오빗) / rk: 현재 반지름 배율 (전환 시 부드럽게 보간)
+const P = { angle: -Math.PI / 2, dir: 1, speed: 1.5, r: 9, ring: 0, rk: 1 };
+// 플레이어의 현재 화면 좌표
+function pPos(){
+  const r = R * P.rk;
+  return { x: CX + Math.cos(P.angle) * r, y: CY + Math.sin(P.angle) * r };
+}
+
+// 엔티티 / 이펙트 컨테이너
+let items = [];     // {kind:'spark'|'spike', angle, ring, t, life, warn}
+let comets = [];    // 혜성 {x0,y0,dx,dy,t,warn,speed,len}
+let cometT = 0;     // 다음 혜성 스폰 타이머
+let particles = []; // {x,y,vx,vy,life,max,size,color}
+let texts = [];     // {x,y,txt,life,max,color,size}
+let ripples = [];   // {x,y,r,max,life,color}
+let trail = [];     // 플레이어 잔상 {x,y,life}
+let stars = [];     // 배경 별 {x,y,z,tw}
+
+let shakeT = 0, shakeMag = 0;   // 화면 흔들림
+let flashA = 0, flashColor = '255,45,120'; // 화면 플래시
+let ringPulse = 0;              // 궤도 링 펄스
+let hueShift = 0;               // 레벨업 시 배경 색조 변화
+let spikeSpawnT = 0;            // 스파이크 스폰 타이머
+let spikeGrace = 0;             // 스파이크 스폰 유예 (듀얼 오빗 해금 직후)
+
+function makeStars(){
+  stars = [];
+  const n = Math.min(130, Math.floor(W * H / 9000));
+  for (let i = 0; i < n; i++){
+    stars.push({ x: Math.random() * W, y: Math.random() * H,
+                 z: rand(0.3, 1), tw: Math.random() * TAU });
+  }
+}
+
+// ---------- 난이도 ----------
+function difficulty(){
+  // 레벨 = 획득한 스파크 7개마다 +1 (최대 10)
+  return Math.min(10, Math.floor(S.collected / 7));
+}
+// 적응 윈도우: 새 기능 첫 등장 시 일시 감속 후 서서히 복귀
+let adaptT = 0;
+const ADAPT_DUR = 6.5;
+function adaptSoft(){ return 1 - 0.3 * clamp(adaptT / ADAPT_DUR, 0, 1); }
+function targetSpeed(){
+  // 회전 속도: 성장 완화(0.13) + 피버 +25% + 적응 감속(최대 -30%)
+  return (1.5 + difficulty() * 0.13) * (S.feverT > 0 ? 1.25 : 1) * adaptSoft();
+}
+function maxSpikes(){ return Math.min(4, 1 + Math.floor(difficulty() / 3)); }
+function spikeInterval(){ return Math.max(1.1, 2.4 - difficulty() * 0.13); } // 스폰 간격
+
+// ---------- 스폰 ----------
+// 같은 궤도의 플레이어/아이템과 겹치지 않는 각도 찾기
+function freeAngle(minFromPlayer, ring){
+  for (let i = 0; i < 24; i++){
+    const a = Math.random() * TAU;
+    if (ring === P.ring && Math.abs(angDiff(a, P.angle)) < minFromPlayer) continue;
+    let ok = true;
+    for (const it of items){
+      if (it.ring === ring && Math.abs(angDiff(a, it.angle)) < 0.42){ ok = false; break; }
+    }
+    if (ok) return a;
+  }
+  return null;
+}
+// 듀얼 오빗 해금 후에는 안/밖 궤도에 랜덤 스폰
+function pickRing(){ return S.dual ? (Math.random() < 0.5 ? 1 : 0) : 0; }
+function spawnSpark(){
+  const ring = pickRing();
+  const a = freeAngle(0.55, ring);
+  if (a === null) return;
+  items.push({ kind: 'spark', angle: a, ring, t: 0, life: 7 });
+}
+function spawnSpike(){
+  const ring = pickRing();
+  const a = freeAngle(0.95, ring); // 스파이크는 플레이어에게서 더 멀리
+  if (a === null) return;
+  items.push({ kind: 'spike', angle: a, ring, t: 0, warn: 0.9, life: 0.9 + 4.6 });
+}
+// 혜성: 궤도를 관통하는 직선 경로
+let cometCount = 0; // 이번 판 혜성 수 (초반 2발은 경고를 길게)
+function spawnComet(){
+  const a = Math.random() * TAU;
+  const dx = Math.cos(a), dy = Math.sin(a);
+  const off = rand(-R * 0.55, R * 0.55); // 중심에서의 수직 오프셋 → 궤도를 가로지름
+  const bx = CX - dy * off, by = CY + dx * off;
+  const L = Math.hypot(W, H) * 0.6 + 80;
+  const warn = cometCount < 2 ? 1.7 : 1.2; // 첫 2발은 반응 시간 여유
+  cometCount++;
+  comets.push({ x0: bx - dx * L, y0: by - dy * L, dx, dy,
+                t: 0, warn, speed: (2 * L) / 0.9, len: 2 * L });
+  sndCometWarn();
+}
+
+// ---------- 이펙트 생성 ----------
+function burst(x, y, color, n, speed){
+  if (REDUCED) n = Math.floor(n / 2);
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * TAU, v = rand(speed * 0.3, speed);
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                     life: rand(0.35, 0.8), max: 0.8,
+                     size: rand(1.5, 3.5), color });
+  }
+}
+function popText(x, y, txt, color, size){
+  texts.push({ x, y, txt, life: 0.9, max: 0.9, color, size: size || 18 });
+}
+function ripple(x, y, color, max){
+  ripples.push({ x, y, r: 6, max: max || 60, life: 0.4, color });
+}
+function shake(mag, t){
+  if (REDUCED) mag *= 0.3;
+  shakeMag = Math.max(shakeMag, mag); shakeT = Math.max(shakeT, t);
+}
+function flash(color, a){ flashColor = color; flashA = Math.max(flashA, a); }
+
+// ---------- 조작: 방향 반전 ----------
+function reverse(){
+  P.dir *= -1;
+  sndReverse();
+  const { x: px, y: py } = pPos();
+  ripple(px, py, '125,249,255', 44);
+}
+
+// ---------- 스킬: 무적 ----------
+function activateShield(){
+  if (S.mode !== 'playing' || S.paused || S.shieldT > 0 || S.shieldGauge < SHIELD_CD) return;
+  S.shieldGauge = 0;
+  S.shieldT = SHIELD_DUR;
+  const { x: px, y: py } = pPos();
+  ripple(px, py, '255,255,255', 76);
+  popText(px, py - 26, 'SHIELD!', '125,249,255', 18);
+  flash('125,249,255', 0.12);
+  sndShield();
+}
+
+// ---------- 스킬: 자석 ----------
+function activateMagnet(){
+  if (S.mode !== 'playing' || S.paused || S.magnetGauge < MAGNET_CD) return;
+  let n = 0;
+  for (const it of items){
+    if (it.kind === 'spark' && !it.pulled){
+      it.pulled = true;
+      // 소속 궤도 위 현재 위치를 좌표로 고정 후 플레이어를 향해 비행
+      const ir = R * (it.ring ? RING_OUT : 1);
+      it.x = CX + Math.cos(it.angle) * ir;
+      it.y = CY + Math.sin(it.angle) * ir;
+      it.life = it.t + 5; // 끌려오는 동안 소멸 방지
+      n++;
+    }
+  }
+  if (!n) return; // 끌어올 스파크가 없으면 게이지 유지
+  S.magnetGauge = 0;
+  const { x: px, y: py } = pPos();
+  ripple(px, py, '255,209,102', 96);
+  shake(3, 0.15);
+  sndMagnet();
+}
+
+// ---------- 스킬: 궤도 전환 (듀얼 오빗) ----------
+function switchOrbit(){
+  if (S.mode !== 'playing' || S.paused || !S.dual || S.orbitCd > 0) return;
+  P.ring = P.ring ? 0 : 1;
+  S.orbitCd = 0.45; // 연타 방지 쿨다운
+  sndSwitch();
+  const { x, y } = pPos();
+  ripple(x, y, '178,107,255', 50);
+}
+
+// ---------- 스킬 버튼 게이지 UI 갱신 ----------
+function updateSkillUI(){
+  const sh = $('sk-shield'), mg = $('sk-magnet');
+  if (S.shieldT > 0){
+    // 무적 발동 중: 남은 시간을 흰색 링으로 표시
+    sh.style.setProperty('--p', (S.shieldT / SHIELD_DUR).toFixed(3));
+    sh.style.setProperty('--c', '#ffffff');
+    sh.classList.add('active'); sh.classList.remove('ready');
+  } else {
+    sh.style.setProperty('--p', (S.shieldGauge / SHIELD_CD).toFixed(3));
+    sh.style.setProperty('--c', '#7df9ff');
+    sh.classList.remove('active');
+    sh.classList.toggle('ready', S.shieldGauge >= SHIELD_CD);
+  }
+  mg.style.setProperty('--p', (S.magnetGauge / MAGNET_CD).toFixed(3));
+  mg.classList.toggle('ready', S.magnetGauge >= MAGNET_CD);
+  // 궤도 전환 버튼: 듀얼 오빗 해금 시에만 표시
+  const ob = $('sk-orbit');
+  ob.style.display = S.dual ? 'flex' : 'none';
+  if (S.dual) ob.style.setProperty('--p', clamp(1 - S.orbitCd / 0.45, 0, 1).toFixed(3));
+}
+
+/* ============================================================
+   튜토리얼
+   - 첫 판: 규칙 → 무적 버튼 → 자석 버튼 (게임 일시정지 상태로 진행)
+   - 첫 5000점: 블랙홀 안내
+   - 한 번 본 튜토리얼은 저장되어 다시 나오지 않음
+   ============================================================ */
+// 커스텀 SVG 아이콘 헬퍼 (버튼과 동일한 도안, 크기만 조절)
+const ICO_BASE = {
+  shield: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 2.6v5.1c0 4.6-2.9 8.2-7 9.8-4.1-1.6-7-5.2-7-9.8V5.6L12 3z"/><path d="M12 3v17.5" opacity=".4"/></svg>',
+  magnet: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><path d="M6 3h4.6v8a1.4 1.4 0 0 0 2.8 0V3H18v8a6 6 0 0 1-12 0V3z"/><path d="M6 3h4.6v3H6z" opacity=".45"/><path d="M13.4 3H18v3h-4.6z" opacity=".45"/></svg>',
+  orbit: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 12a6.8 6.8 0 0 1 11.9-4.5"/><path d="M18.8 12a6.8 6.8 0 0 1-11.9 4.5"/><path d="M17.4 4.4l-.2 3.4-3.4-.7"/><path d="M6.6 19.6l.2-3.4 3.4.7"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg>',
+};
+function ico(name, n){
+  return ICO_BASE[name].replace('width="22" height="22"', 'width="' + n + '" height="' + n + '"');
+}
+
+let tutSeen = false;
+const seen = { bh: false, comet: false, dual: false }; // 이벤트별 안내 카드 노출 여부
+try {
+  tutSeen = localStorage.getItem('revolv_tut1') === '1';
+  for (const k of Object.keys(seen)) seen[k] = localStorage.getItem('revolv_tut_' + k) === '1';
+} catch(e){}
+let tutMode = null;      // 'intro' | 'card' | null
+let tutStep = 0;
+let cardSeenKey = null;  // 현재 SKIP 카드가 저장할 키
+
+const TUT_STEPS = [
+  { icon:'🌀', pos:'center' },
+  { icon: ico('shield', 34), pos:'bottom point-left', spot:'sk-shield' },
+  { icon: ico('magnet', 34), pos:'bottom point-right', spot:'sk-magnet' },
+];
+
+function showTutCard(step){
+  const d = TUT_STEPS[step];
+  $('tut-icon').innerHTML = d.icon;
+  $('tut-title').textContent = T('tutT')[step];
+  $('tut-body').innerHTML = T('tutB')[step];
+  $('tut-card').className = 'tut-card ' + d.pos;
+  $('tut').className = 'show' + (d.spot ? ' light' : '');
+  // 소개 중인 버튼 스포트라이트 + 게이지 가득 찬 데모 표시
+  $('sk-shield').classList.remove('spotlight');
+  $('sk-magnet').classList.remove('spotlight');
+  if (d.spot){
+    const b = $(d.spot);
+    b.classList.add('spotlight');
+    b.style.setProperty('--p', 1);
+  }
+}
+function startTutorial(){
+  tutMode = 'intro'; tutStep = 0;
+  S.paused = true;
+  showTutCard(0);
+}
+let bhTutAt = 0; // SKIP 카드 등장 시각 (반사 탭 방지용)
+// 인게임 이벤트 안내 카드: SKIP 버튼으로만 닫힘 (블랙홀/혜성/듀얼 오빗 공용)
+function showSkipCard(icon, title, body, key){
+  tutMode = 'card';
+  cardSeenKey = key;
+  seen[key] = true;
+  S.paused = true;
+  bhTutAt = performance.now();
+  $('tut-icon').innerHTML = icon;
+  $('tut-title').textContent = title;
+  $('tut-body').innerHTML = body;
+  $('tut-card').className = 'tut-card center';
+  $('tut').className = 'show needbtn';
+}
+function endTutorial(){
+  tutMode = null;
+  S.paused = false;
+  $('tut').className = '';
+  $('sk-shield').classList.remove('spotlight');
+  $('sk-magnet').classList.remove('spotlight');
+  popText(CX, CY - R - 40, 'GO!', '125,249,255', 22);
+  tone(660, 0.12, 'sine', 0.15, 990);
+}
+function tutNext(){
+  sndClick();
+  if (tutMode === 'intro'){
+    tutStep++;
+    if (tutStep < TUT_STEPS.length){ showTutCard(tutStep); return; }
+    tutSeen = true;
+    try { localStorage.setItem('revolv_tut1', '1'); } catch(e){}
+  } else if (tutMode === 'card'){
+    if (cardSeenKey){
+      try { localStorage.setItem('revolv_tut_' + cardSeenKey, '1'); } catch(e){}
+      cardSeenKey = null;
+    }
+  }
+  endTutorial();
+}
+
+// ---------- 게임 흐름 ----------
+const $ = id => document.getElementById(id);
+
+function startGame(){
+  S.mode = 'playing';
+  S.score = 0; S.combo = 0; S.comboTimer = 0;
+  S.collected = 0; S.time = 0; S.level = 0;
+  P.angle = -Math.PI / 2; P.dir = 1; P.speed = targetSpeed();
+  items = []; particles = []; texts = []; ripples = []; trail = [];
+  spikeSpawnT = 1.4; hueShift = 0;
+  S.shieldGauge = 0; S.shieldT = 0; S.magnetGauge = 0;
+  S.nextEvent = EVENT_STEP; S.eventIdx = 0;
+  S.bhActive = false; S.bhT = 0; S.feverT = 0;
+  S.cometOn = false; comets = []; cometT = 0; cometCount = 0; adaptT = 0; spikeGrace = 0;
+  S.dual = false; S.orbitCd = 0; P.ring = 0; P.rk = 1;
+  S.orbitK = 1; R = Rbase;
+  updateSkillUI();
+  spawnSpark(); spawnSpark();
+  $('menu').classList.remove('show');
+  $('over').classList.remove('show');
+  $('hud').classList.add('show');
+  $('tap-hint').style.display = 'block';
+  $('score').textContent = '0';
+  $('best-val').textContent = S.best;
+  updateCombo();
+  if (musicOn) setMusicVol(MUSIC_VOL, 0.8); // BGM 복귀
+  sndStart();
+  // 튜토리얼 상태 정리 후, 첫 판이면 튜토리얼 시작
+  S.paused = false; tutMode = null;
+  $('tut').className = '';
+  if (!tutSeen) startTutorial();
+}
+
+function die(spike){
+  S.mode = 'dying'; S.dyingT = 0;
+  const { x: px, y: py } = pPos();
+  burst(px, py, '125,249,255', 46, 320);
+  burst(px, py, '255,45,120', 30, 220);
+  ripple(px, py, '255,45,120', 160);
+  shake(16, 0.55);
+  flash('255,45,120', 0.5);
+  sndDeath();
+  setMusicVol(0.04, 0.5); // BGM 덕킹 — 게임오버 연출 강조
+  if (navigator.vibrate) { try { navigator.vibrate(80); } catch(e){} }
+}
+
+function showGameOver(){
+  S.mode = 'over'; S.overLock = 0.6;
+  const isRecord = S.score > S.best;
+  if (isRecord){ S.best = S.score; saveBest(S.best); }
+  $('final-score').textContent = S.score;
+  $('final-best').textContent = 'BEST ' + S.best;
+  $('new-record').classList.toggle('show', isRecord);
+  $('hud').classList.remove('show');
+  $('over').classList.add('show');
+  if (isRecord) setTimeout(sndRecord, 350); else sndGameOver();
+}
+
+function updateCombo(){
+  const el = $('combo');
+  if (S.combo >= 2){
+    el.textContent = 'COMBO ×' + S.combo;
+    el.classList.add('on');
+  } else el.classList.remove('on');
+}
+
+// ---------- 업데이트 ----------
+function update(dt){
+  // 배경/이펙트는 어느 모드에서든 진행
+  for (const st of stars) st.tw += dt * 2;
+
+  // 파티클
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= (1 - 2.2 * dt); p.vy *= (1 - 2.2 * dt);
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  // 플로팅 텍스트
+  for (let i = texts.length - 1; i >= 0; i--){
+    const t = texts[i]; t.y -= 42 * dt; t.life -= dt;
+    if (t.life <= 0) texts.splice(i, 1);
+  }
+  // 리플
+  for (let i = ripples.length - 1; i >= 0; i--){
+    const r = ripples[i]; r.r += (r.max - r.r) * 8 * dt; r.life -= dt;
+    if (r.life <= 0) ripples.splice(i, 1);
+  }
+  if (shakeT > 0) shakeT -= dt; else shakeMag = 0;
+  if (flashA > 0) flashA = Math.max(0, flashA - dt * 1.8);
+  if (ringPulse > 0) ringPulse = Math.max(0, ringPulse - dt * 3);
+
+  if (S.mode === 'dying'){
+    S.dyingT += dt;
+    if (S.dyingT > 1.0) showGameOver();
+    return;
+  }
+  if (S.mode === 'over'){ S.overLock -= dt; return; }
+
+  // 메뉴 화면: 오브가 스스로 도는 데모 애니메이션
+  if (S.mode === 'menu'){
+    P.angle += 0.8 * dt;
+    pushTrail();
+    return;
+  }
+
+  // 튜토리얼 일시정지: 게임 로직만 멈추고 배경/이펙트는 계속
+  if (S.paused) return;
+
+  // ===== 플레이 중 =====
+  S.time += dt;
+
+  // ----- 스킬 게이지 (무적은 7초 주기로 항상 충전) -----
+  S.shieldGauge = Math.min(SHIELD_CD, S.shieldGauge + dt);
+  S.magnetGauge = Math.min(MAGNET_CD, S.magnetGauge + dt);
+  if (S.shieldT > 0){
+    S.shieldT -= dt;
+    if (S.shieldT <= 0){ S.shieldT = 0; sndShieldEnd(); }
+  }
+  updateSkillUI();
+
+  // ----- 이벤트 스케줄러: 5000점마다 위기(블랙홀) ↔ 보상(피버) 교차 -----
+  if (S.score >= S.nextEvent && !S.bhActive && S.feverT <= 0){
+    if (S.eventIdx % 2 === 0){
+      // 🕳️ 블랙홀 (5000, 15000, 25000 ...)
+      S.bhActive = true; S.bhT = BH_DUR;
+      popText(CX, CY - R - 44, 'BLACK HOLE!', '178,107,255', 24);
+      ripple(CX, CY, '178,107,255', R * 1.6);
+      flash('120,60,255', 0.3);
+      shake(10, 0.5);
+      sndBlackhole();
+      if (S.eventIdx === 0) adaptT = ADAPT_DUR; // 이번 판 첫 블랙홀: 적응 감속
+      if (!seen.bh) showSkipCard('🕳️', T('bhT'), T('bhB'), 'bh');
+    } else {
+      // 🌟 슈퍼노바 피버 (10000, 20000, 30000 ...)
+      S.feverT = FEVER_DUR;
+      popText(CX, CY - R - 48, 'SUPERNOVA FEVER!', '255,209,102', 24);
+      popText(CX, CY - R - 20, T('x2'), '255,235,170', 15);
+      ripple(CX, CY, '255,209,102', R * 1.7);
+      flash('255,190,80', 0.28);
+      shake(6, 0.35);
+      sndFever();
+      if (S.eventIdx === 1) adaptT = ADAPT_DUR; // 이번 판 첫 피버: 가속과 상쇄되도록 감속
+    }
+    S.eventIdx++;
+    S.nextEvent += EVENT_STEP;
+  }
+  // 피버 종료 처리
+  if (S.feverT > 0){
+    S.feverT -= dt;
+    if (S.feverT <= 0){
+      S.feverT = 0;
+      popText(CX, CY - R - 30, 'FEVER END', '255,209,102', 14);
+      sndFeverEnd();
+    }
+  }
+  // ----- 혜성 활성화 (19000점) -----
+  if (!S.cometOn && S.score >= COMET_AT){
+    S.cometOn = true;
+    cometT = 3.5;
+    adaptT = Math.max(adaptT, 7); // 혜성 적응 시간
+    if (!seen.comet) showSkipCard('☄️', T('cometT'), T('cometB'), 'comet');
+    else popText(CX, CY - R - 44, 'COMET ZONE', '255,150,80', 20);
+  }
+  // ----- 듀얼 오빗 해금 (12000점) -----
+  if (!S.dual && S.score >= DUAL_AT){
+    S.dual = true;
+    adaptT = Math.max(adaptT, 7); // 듀얼 오빗 적응 시간
+    // 모든 스파이크 소멸 (연습 공간 확보) — 파티클 연출과 함께
+    for (let i = items.length - 1; i >= 0; i--){
+      if (items[i].kind === 'spike'){
+        const it = items[i];
+        const ir2 = R * (it.ring ? RING_OUT : 1);
+        burst(CX + Math.cos(it.angle) * ir2, CY + Math.sin(it.angle) * ir2, '255,45,120', 14, 190);
+        items.splice(i, 1);
+      }
+    }
+    spikeGrace = 6;      // 6초간 스파이크 스폰 중단 (카드가 열려 있는 동안은 정지)
+    spikeSpawnT = 0.8;   // 유예 종료 후 첫 스파이크까지 짧게 → 이후 순차 등장
+    cometT = Math.max(cometT, 6); // 연습 중 혜성도 잠시 유예
+    ripple(CX, CY, '178,107,255', R * RING_OUT);
+    if (!seen.dual) showSkipCard(ico('orbit', 34), T('dualT'), T('dualB'), 'dual');
+    else popText(CX, CY - R - 44, 'DUAL ORBIT!', '178,107,255', 22);
+  }
+  // 적응 윈도우 타이머 (카드로 일시정지 중에는 진행되지 않음)
+  if (adaptT > 0) adaptT = Math.max(0, adaptT - dt);
+  // 궤도 전환 쿨다운 / 반지름 보간
+  if (S.orbitCd > 0) S.orbitCd = Math.max(0, S.orbitCd - dt);
+  P.rk += ((P.ring ? RING_OUT : 1) - P.rk) * Math.min(1, dt * 10);
+  if (S.bhActive){
+    S.bhT -= dt;
+    // 주변 입자가 중심으로 빨려 들어가는 연출
+    if (!REDUCED && Math.random() < dt * 14){
+      const a = Math.random() * TAU, d0 = R * rand(1.15, 1.6);
+      particles.push({ x: CX + Math.cos(a) * d0, y: CY + Math.sin(a) * d0,
+                       vx: -Math.cos(a) * rand(140, 280), vy: -Math.sin(a) * rand(140, 280),
+                       life: 0.7, max: 0.7, size: 2, color: '178,107,255' });
+    }
+    if (S.bhT <= 0){
+      S.bhActive = false;
+      popText(CX, CY - R - 44, 'ORBIT RESTORED', '125,249,255', 16);
+      sndBHEnd();
+    }
+  }
+  // 궤도 반지름을 목표 배율로 부드럽게 축소/복원
+  const kTarget = S.bhActive ? BH_SHRINK : 1;
+  S.orbitK += (kTarget - S.orbitK) * Math.min(1, dt * 5);
+  R = Rbase * S.orbitK;
+
+  // 속도를 목표치로 부드럽게 수렴 (레벨업 시 점진 가속)
+  P.speed += (targetSpeed() - P.speed) * dt * 2;
+  P.angle += P.dir * P.speed * dt;
+  pushTrail();
+
+  // 레벨업 체크
+  const lv = difficulty();
+  if (lv > S.level){
+    S.level = lv;
+    hueShift = lv * 24;
+    popText(CX, CY - R - 34, 'SPEED UP!', '178,107,255', 22);
+    ripple(CX, CY, '178,107,255', R * 1.5);
+    flash('178,107,255', 0.14);
+    tone(660, 0.16, 'square', 0.12, 990);
+  }
+
+  // 콤보 타이머
+  if (S.comboTimer > 0){
+    S.comboTimer -= dt;
+    if (S.comboTimer <= 0){ S.combo = 0; updateCombo(); }
+  }
+
+  // 스파이크 스폰 (듀얼 오빗 해금 직후에는 유예 후 순차 재등장)
+  if (spikeGrace > 0){
+    spikeGrace -= dt;
+  } else {
+    spikeSpawnT -= dt;
+    const spikeCount = items.filter(i => i.kind === 'spike').length;
+    if (spikeSpawnT <= 0 && spikeCount < maxSpikes()){
+      spawnSpike();
+      spikeSpawnT = spikeInterval();
+    }
+  }
+
+  // 아이템 갱신 + 충돌 판정
+  const { x: px, y: py } = pPos();
+  let sparkAlive = 0;
+
+  for (let i = items.length - 1; i >= 0; i--){
+    const it = items[i];
+    it.t += dt;
+    if (it.t >= it.life){ items.splice(i, 1); continue; }
+
+    // 아이템의 소속 궤도 반지름 기준 좌표
+    const ir = R * (it.ring ? RING_OUT : 1);
+    const ix = CX + Math.cos(it.angle) * ir, iy = CY + Math.sin(it.angle) * ir;
+    // 유클리드 거리: 같은 궤도면 궤도상 거리와 동일하게 동작하고,
+    // 궤도 전환 중에도 자연스러운 판정이 됨
+    const dist = Math.hypot(px - ix, py - iy);
+
+    if (it.kind === 'spark'){
+      sparkAlive++;
+      let hit;
+      if (it.pulled){
+        // ----- 자석: 플레이어를 향해 가속 비행 -----
+        const dx = px - it.x, dy = py - it.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const sp = 520 + 900 * (1 - Math.min(d / 300, 1)); // 가까울수록 가속
+        it.x += dx / d * sp * dt;
+        it.y += dy / d * sp * dt;
+        hit = d < P.r + 14;
+      } else {
+        hit = dist < P.r + 11;
+      }
+      if (hit){
+        const hx = it.pulled ? it.x : ix, hy = it.pulled ? it.y : iy;
+        items.splice(i, 1);
+        collectSpark(hx, hy);
+      }
+    } else {
+      // 스파이크: 경고 시간(warn)이 지나야 무장됨
+      const armed = it.t > it.warn;
+      const fading = it.life - it.t < 0.5; // 소멸 직전 페이드
+      if (armed && !fading && dist < P.r + 10){
+        if (S.shieldT > 0){
+          // ----- 무적: 스파이크를 파괴하며 통과 -----
+          items.splice(i, 1);
+          burst(ix, iy, '255,45,120', 18, 240);
+          popText(ix, iy - 18, 'BLOCK', '125,249,255', 15);
+          ripple(ix, iy, '125,249,255', 58);
+          shake(4, 0.15);
+          sndBlock();
+        } else {
+          die(it);
+          return;
+        }
+      }
+    }
+  }
+
+  // 스파크 유지 개수: 평상시 2개, 피버 중 5개
+  const sparkTarget = S.feverT > 0 ? 5 : 2;
+  while (sparkAlive < sparkTarget){ spawnSpark(); sparkAlive++; }
+
+  // ----- 혜성 스폰 / 이동 / 충돌 -----
+  if (S.cometOn){
+    cometT -= dt;
+    if (cometT <= 0 && comets.length < 2){
+      spawnComet();
+      cometT = Math.max(5, rand(6, 8.5) - difficulty() * 0.2);
+    }
+  }
+  for (let i = comets.length - 1; i >= 0; i--){
+    const c = comets[i];
+    c.t += dt;
+    if (c.t <= c.warn) continue; // 경고 중
+    const d = (c.t - c.warn) * c.speed;
+    if (d > c.len){ comets.splice(i, 1); continue; }
+    const hx = c.x0 + c.dx * d, hy = c.y0 + c.dy * d;
+    // 꼬리 파티클
+    if (!REDUCED && Math.random() < dt * 28){
+      particles.push({ x: hx, y: hy,
+        vx: -c.dx * 60 + rand(-30, 30), vy: -c.dy * 60 + rand(-30, 30),
+        life: 0.5, max: 0.5, size: 2, color: '255,150,80' });
+    }
+    // 플레이어 충돌
+    if (Math.hypot(px - hx, py - hy) < P.r + 8){
+      if (S.shieldT > 0){
+        if (!c.blocked){ // 통과 중 중복 연출 방지
+          c.blocked = true;
+          ripple(px, py, '125,249,255', 56);
+          sndBlock();
+        }
+      } else {
+        die(c);
+        return;
+      }
+    }
+  }
+}
+
+function pushTrail(){
+  const { x: px, y: py } = pPos();
+  trail.push({ x: px, y: py, life: 0.4 });
+  if (trail.length > 26) trail.shift();
+  for (const t of trail) t.life -= 0.016;
+}
+
+// ----- 스파크 획득 처리 (일반 획득 / 자석 흡수 공용) -----
+function collectSpark(x, y){
+  S.combo++; S.comboTimer = 4;
+  const fever = S.feverT > 0;
+  const gain = 10 * S.combo * (fever ? FEVER_MULT : 1);
+  S.score += gain;
+  S.collected++;
+  $('score').textContent = S.score;
+  const sc = $('score');
+  sc.classList.remove('pop'); void sc.offsetWidth; sc.classList.add('pop');
+  updateCombo();
+  popText(x, y - 18, '+' + gain, fever ? '255,235,170' : '255,209,102', (S.combo >= 3 || fever) ? 22 : 17);
+  if (S.combo >= 2) popText(x, y - 44, '×' + S.combo, '178,107,255', 15);
+  burst(x, y, '255,209,102', 16 + Math.min(S.combo * 2, 14), 190);
+  ripple(x, y, '255,209,102', 52);
+  ringPulse = 1;
+  if (S.combo >= 4) shake(3, 0.12);
+  sndCollect(S.combo);
+  if (S.time > 6) $('tap-hint').style.display = 'none';
+}
+
+// ---------- 렌더링 ----------
+function render(){
+  // 배경 그라디언트 (레벨에 따라 색조 변화)
+  const g = ctx.createRadialGradient(CX, CY, R * 0.2, CX, CY, Math.max(W, H) * 0.75);
+  g.addColorStop(0, 'hsl(' + (248 + hueShift) + ',60%,10%)');
+  g.addColorStop(1, '#05040f');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // 네뷸라 글로우 2개 (깊이감)
+  ctx.globalCompositeOperation = 'lighter';
+  nebula(CX - R * 1.1, CY - R * 0.9, R * 1.4, 'hsla(' + (265 + hueShift) + ',80%,50%,0.05)');
+  nebula(CX + R * 1.2, CY + R * 0.8, R * 1.6, 'hsla(' + (190 + hueShift) + ',90%,55%,0.045)');
+  ctx.globalCompositeOperation = 'source-over';
+
+  // 별 (반짝임 + 미세 패럴랙스)
+  const drift = S.time * 4;
+  for (const st of stars){
+    const a = 0.25 + 0.55 * (0.5 + 0.5 * Math.sin(st.tw));
+    ctx.fillStyle = 'rgba(232,230,255,' + (a * st.z).toFixed(3) + ')';
+    const sx = (st.x + drift * st.z) % W;
+    ctx.fillRect(sx, st.y, st.z * 1.8, st.z * 1.8);
+  }
+
+  // ----- 화면 흔들림 시작 -----
+  ctx.save();
+  if (shakeT > 0){
+    ctx.translate(rand(-shakeMag, shakeMag), rand(-shakeMag, shakeMag));
+  }
+
+  // 궤도 링 (피버 중 황금빛)
+  const ringCol = S.feverT > 0 ? '255,209,102' : '140,150,255';
+  const ringGlow = S.feverT > 0 ? 'rgba(255,209,102,0.8)' : 'rgba(125,249,255,0.8)';
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, TAU);
+  ctx.strokeStyle = 'rgba(' + ringCol + ',' + (0.2 + ringPulse * 0.5) + ')';
+  ctx.lineWidth = 1.5 + ringPulse * 2.5;
+  ctx.shadowColor = ringGlow;
+  ctx.shadowBlur = 8 + ringPulse * 18;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // 바깥 궤도 (듀얼 오빗 해금 시)
+  if (S.dual){
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * RING_OUT, 0, TAU);
+    ctx.strokeStyle = 'rgba(178,107,255,' + (0.22 + ringPulse * 0.4) + ')';
+    ctx.lineWidth = 1.5 + ringPulse * 2;
+    ctx.shadowColor = 'rgba(178,107,255,0.8)';
+    ctx.shadowBlur = 7 + ringPulse * 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  // 중심: 평상시 코어 / 블랙홀 / 슈퍼노바(피버)
+  if (S.bhActive){
+    drawBlackHole();
+  } else if (S.feverT > 0){
+    drawSupernova();
+  } else {
+    const pulse = 1 + Math.sin(performance.now() / 320) * 0.12 + ringPulse * 0.25;
+    const coreR = 7 * pulse;
+    ctx.beginPath();
+    ctx.arc(CX, CY, coreR, 0, TAU);
+    ctx.fillStyle = '#e8e6ff';
+    ctx.shadowColor = 'hsla(' + (255 + hueShift) + ',90%,70%,1)';
+    ctx.shadowBlur = 24;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // 아이템 (사망 연출 중에는 숨김)
+  const dying = S.mode === 'dying';
+  if (!dying){
+    for (const it of items){
+      // 자석에 끌려오는 스파크는 궤도가 아닌 자체 좌표 사용
+      const ir = R * (it.ring ? RING_OUT : 1);
+      const ix = it.pulled ? it.x : CX + Math.cos(it.angle) * ir;
+      const iy = it.pulled ? it.y : CY + Math.sin(it.angle) * ir;
+      if (it.kind === 'spark') drawSpark(ix, iy, it);
+      else drawSpike(ix, iy, it);
+    }
+    // 혜성 (경고선 / 돌진)
+    for (const c of comets) drawComet(c);
+  }
+
+  // 플레이어 잔상 (트레일)
+  if (!dying){
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < trail.length; i++){
+      const t = trail[i];
+      if (t.life <= 0) continue;
+      const k = i / trail.length;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, P.r * k * 0.85, 0, TAU);
+      ctx.fillStyle = 'rgba(125,249,255,' + (0.16 * k).toFixed(3) + ')';
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 플레이어 본체
+    const { x: px, y: py } = pPos();
+    drawPlayer(px, py);
+
+    // 무적 실드 오라 (종료 0.9초 전부터 깜빡임 경고)
+    if (S.shieldT > 0){
+      const blink = S.shieldT < 0.9 ? (Math.sin(performance.now() / 55) > 0 ? 1 : 0.2) : 1;
+      ctx.beginPath();
+      ctx.arc(px, py, P.r + 7 + Math.sin(performance.now() / 110) * 1.5, 0, TAU);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.85 * blink).toFixed(3) + ')';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#7df9ff';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  // 리플
+  for (const r of ripples){
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.r, 0, TAU);
+    ctx.strokeStyle = 'rgba(' + r.color + ',' + (r.life * 1.6).toFixed(3) + ')';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // 파티클
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of particles){
+    const a = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = 'rgba(' + p.color + ',' + a.toFixed(3) + ')';
+    ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // 플로팅 텍스트
+  for (const t of texts){
+    const a = clamp(t.life / t.max, 0, 1);
+    ctx.font = '700 ' + t.size + 'px "Orbitron","Gothic A1",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(' + t.color + ',' + a.toFixed(3) + ')';
+    ctx.shadowColor = 'rgba(' + t.color + ',0.8)';
+    ctx.shadowBlur = 10;
+    ctx.fillText(t.txt, t.x, t.y);
+    ctx.shadowBlur = 0;
+  }
+
+  ctx.restore();
+  // ----- 화면 흔들림 끝 -----
+
+  // 플래시 오버레이
+  if (flashA > 0){
+    ctx.fillStyle = 'rgba(' + flashColor + ',' + (flashA * 0.5).toFixed(3) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 비네트 (가장자리 어둡게 — 몰입감)
+  const vg = ctx.createRadialGradient(CX, CY, Math.min(W, H) * 0.45, CX, CY, Math.max(W, H) * 0.72);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function nebula(x, y, r, color){
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, color);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+}
+
+// 슈퍼노바(피버): 회전하는 광선 + 눈부신 코어
+function drawSupernova(){
+  const t = performance.now() / 1000;
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.rotate(t * 0.8);
+  for (let i = 0; i < 8; i++){
+    ctx.rotate(TAU / 8);
+    const len = 26 + Math.sin(t * 6 + i) * 6;
+    const g = ctx.createLinearGradient(0, 0, len, 0);
+    g.addColorStop(0, 'rgba(255,235,170,.9)');
+    g.addColorStop(1, 'rgba(255,209,102,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, -1.6, len, 3.2);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.arc(0, 0, 9 + Math.sin(t * 7) * 1.5, 0, TAU);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = '#ffd166';
+  ctx.shadowBlur = 34;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// 혜성: 경고선(점선) → 빛나는 머리 + 불꽃 꼬리
+function drawComet(c){
+  if (c.t < c.warn){
+    // 경고선: 점점 선명해지며 깜빡임
+    const k = c.t / c.warn;
+    const a = (0.15 + 0.4 * k) * (0.55 + 0.45 * Math.sin(c.t * 18));
+    ctx.save();
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(c.x0, c.y0);
+    ctx.lineTo(c.x0 + c.dx * c.len, c.y0 + c.dy * c.len);
+    ctx.strokeStyle = 'rgba(255,140,80,' + a.toFixed(3) + ')';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    return;
+  }
+  const d = (c.t - c.warn) * c.speed;
+  const hx = c.x0 + c.dx * d, hy = c.y0 + c.dy * d;
+  ctx.globalCompositeOperation = 'lighter';
+  // 꼬리
+  const tl = 110;
+  const g = ctx.createLinearGradient(hx, hy, hx - c.dx * tl, hy - c.dy * tl);
+  g.addColorStop(0, 'rgba(255,200,120,.85)');
+  g.addColorStop(1, 'rgba(255,90,40,0)');
+  ctx.strokeStyle = g;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+  ctx.lineTo(hx - c.dx * tl, hy - c.dy * tl);
+  ctx.stroke();
+  // 머리
+  ctx.beginPath();
+  ctx.arc(hx, hy, 7, 0, TAU);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = '#ff8c50';
+  ctx.shadowBlur = 22;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// 블랙홀: 회전하는 강착원반 + 검은 사건의 지평선
+function drawBlackHole(){
+  const t = performance.now() / 1000;
+  ctx.save();
+  ctx.translate(CX, CY);
+  // 강착원반 (서로 다른 속도로 도는 호 3개)
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 3; i++){
+    const a0 = t * (2.4 - i * 0.6) + i * 2.1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 20 + i * 7, a0, a0 + 2.4);
+    ctx.strokeStyle = 'rgba(178,107,255,' + (0.55 - i * 0.14).toFixed(2) + ')';
+    ctx.lineWidth = 3 - i * 0.6;
+    ctx.shadowColor = '#b26bff';
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.shadowBlur = 0;
+  // 사건의 지평선
+  ctx.beginPath();
+  ctx.arc(0, 0, 13, 0, TAU);
+  ctx.fillStyle = '#000';
+  ctx.shadowColor = '#b26bff';
+  ctx.shadowBlur = 26;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(178,107,255,.9)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// 플레이어: 유선형 노즈 + 그라디언트 오브 + 회전 새틀라이트
+function drawPlayer(x, y){
+  const t = performance.now() / 1000;
+  const dir = P.angle + P.dir * Math.PI / 2; // 진행 방향 (궤도 접선)
+  ctx.save();
+  ctx.translate(x, y);
+  // 진행 방향으로 뻗는 유선형 노즈 — 반전 시 방향이 뒤집혀 보임
+  ctx.save();
+  ctx.rotate(dir);
+  ctx.beginPath();
+  ctx.moveTo(P.r + 8, 0);
+  ctx.quadraticCurveTo(1, 6, -P.r * 0.7, 0);
+  ctx.quadraticCurveTo(1, -6, P.r + 8, 0);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(125,249,255,.35)';
+  ctx.shadowColor = '#7df9ff';
+  ctx.shadowBlur = 14;
+  ctx.fill();
+  ctx.restore();
+  // 본체: 입체감 있는 라디얼 그라디언트 오브
+  const g = ctx.createRadialGradient(-P.r * 0.3, -P.r * 0.3, 1, 0, 0, P.r);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.45, '#aefcff');
+  g.addColorStop(1, '#3ec9de');
+  ctx.beginPath();
+  ctx.arc(0, 0, P.r, 0, TAU);
+  ctx.fillStyle = g;
+  ctx.shadowColor = '#7df9ff';
+  ctx.shadowBlur = 22;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // 미니 새틀라이트 3개 — 게임의 궤도 콘셉트를 캐릭터에 반영
+  for (let i = 0; i < 3; i++){
+    const a = t * 2.8 + i * TAU / 3;
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * (P.r + 5.5), Math.sin(a) * (P.r + 5.5), 1.7, 0, TAU);
+    ctx.fillStyle = 'rgba(232,246,255,.9)';
+    ctx.shadowColor = '#7df9ff';
+    ctx.shadowBlur = 6;
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  // 상단 하이라이트
+  ctx.beginPath();
+  ctx.arc(-P.r * 0.25, -P.r * 0.25, P.r * 0.3, 0, TAU);
+  ctx.fillStyle = 'rgba(255,255,255,.95)';
+  ctx.fill();
+  ctx.restore();
+}
+
+// 스파크: 이중 역회전 크리스털 + 컷 면 + 광채 레이 + 궤도 글린트
+function drawSpark(x, y, it){
+  const lifeK = clamp((it.life - it.t) / 1.2, 0, 1); // 마지막 1.2초 동안 축소
+  const k = 0.35 + 0.65 * lifeK;
+  const s = (8 + Math.sin(it.t * 5) * 1.2) * k;
+  ctx.save();
+  ctx.translate(x, y);
+  // 외곽 크리스털 아웃라인 (본체와 반대 방향 회전)
+  ctx.save();
+  ctx.rotate(-it.t * 1.3);
+  ctx.beginPath();
+  ctx.moveTo(0, -s * 1.7); ctx.lineTo(s * 1.1, 0);
+  ctx.lineTo(0, s * 1.7); ctx.lineTo(-s * 1.1, 0);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(255,209,102,' + (0.45 * k).toFixed(3) + ')';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+  // 본체 크리스털 (그라디언트 채움)
+  ctx.rotate(it.t * 2);
+  const g = ctx.createLinearGradient(0, -s, 0, s);
+  g.addColorStop(0, '#fff6dc');
+  g.addColorStop(0.5, '#ffd166');
+  g.addColorStop(1, '#ff9f43');
+  ctx.beginPath();
+  ctx.moveTo(0, -s); ctx.lineTo(s * 0.72, 0); ctx.lineTo(0, s); ctx.lineTo(-s * 0.72, 0);
+  ctx.closePath();
+  ctx.fillStyle = g;
+  ctx.shadowColor = '#ffd166';
+  ctx.shadowBlur = 16;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // 컷 면 하이라이트
+  ctx.beginPath();
+  ctx.moveTo(0, -s); ctx.lineTo(0, s);
+  ctx.moveTo(-s * 0.72, 0); ctx.lineTo(s * 0.72, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,' + (0.5 * k).toFixed(3) + ')';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+  // 4방 광채 레이 (반짝임)
+  const tw = 0.5 + 0.5 * Math.sin(it.t * 7 + x);
+  const ray = s * (1.6 + 1.1 * tw);
+  ctx.strokeStyle = 'rgba(255,246,220,' + (0.5 * tw * k).toFixed(3) + ')';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - ray, y); ctx.lineTo(x + ray, y);
+  ctx.moveTo(x, y - ray); ctx.lineTo(x, y + ray);
+  ctx.stroke();
+  // 크리스털 주위를 도는 글린트 점
+  const ga = it.t * 3.2;
+  ctx.beginPath();
+  ctx.arc(x + Math.cos(ga) * s * 1.5, y + Math.sin(ga) * s * 1.5, 1.5 * k, 0, TAU);
+  ctx.fillStyle = 'rgba(255,255,255,' + (0.8 * k).toFixed(3) + ')';
+  ctx.fill();
+}
+
+// 스파이크: 경고(점선 원) → 무장(✕) → 소멸 페이드
+function drawSpike(x, y, it){
+  const armed = it.t > it.warn;
+  ctx.save();
+  ctx.translate(x, y);
+  if (!armed){
+    // 경고 텔레그래프: 줄어드는 점선 원
+    const k = 1 - it.t / it.warn;
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.arc(0, 0, 10 + 16 * k, 0, TAU);
+    ctx.strokeStyle = 'rgba(255,45,120,' + (0.35 + 0.5 * (1 - k)) + ')';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    const fade = clamp((it.life - it.t) / 0.5, 0, 1); // 소멸 직전 페이드아웃
+    const s = 10 * fade;
+    ctx.rotate(it.t * 1.2);
+    // 8방 가시 (기뢰)
+    ctx.fillStyle = 'rgba(255,45,120,' + fade.toFixed(3) + ')';
+    ctx.shadowColor = '#ff2d78';
+    ctx.shadowBlur = 14 * fade;
+    for (let i = 0; i < 8; i++){
+      ctx.save();
+      ctx.rotate(i * TAU / 8);
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.42); ctx.lineTo(s * 1.35, 0); ctx.lineTo(0, s * 0.42);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.shadowBlur = 0;
+    // 본체 코어 (어두운 금속질)
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.62, 0, TAU);
+    ctx.fillStyle = '#2a0716';
+    ctx.strokeStyle = 'rgba(255,120,170,' + fade.toFixed(3) + ')';
+    ctx.lineWidth = 1.5;
+    ctx.fill();
+    ctx.stroke();
+    // 맥동하는 위협의 '눈'
+    const pk = 0.5 + 0.5 * Math.sin(it.t * 9);
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.22 * (0.8 + 0.4 * pk), 0, TAU);
+    ctx.fillStyle = 'rgba(255,90,150,' + ((0.6 + 0.4 * pk) * fade).toFixed(3) + ')';
+    ctx.shadowColor = '#ff2d78';
+    ctx.shadowBlur = 10 * fade;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+// ---------- 메인 루프 ----------
+let last = performance.now();
+function loop(now){
+  // 탭 전환 등으로 dt가 튀는 것 방지 (터널링 예방)
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---------- 입력 ----------
+function primaryAction(){
+  if (S.paused){
+    if (tutMode !== 'card') tutNext(); // 이벤트 안내는 SKIP 버튼으로만 닫힘
+    return;
+  }
+  if (S.mode === 'playing') reverse();
+  else if (S.mode === 'menu') startGame();
+  else if (S.mode === 'over' && S.overLock <= 0){ sndClick(); startGame(); }
+}
+// 포인터(터치+마우스 통합)
+window.addEventListener('pointerdown', e => {
+  if (e.target.closest('.btn') || e.target.closest('.skill')) return; // 버튼은 자체 핸들러 사용
+  audioCtx();
+  primaryAction();
+});
+// iOS 사파리 더블탭 줌 등 방지
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+// 키보드 (Space=반전, Q/1=무적, E/2=자석)
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter'){
+    e.preventDefault();
+    audioCtx();
+    primaryAction();
+  } else if (e.code === 'KeyQ' || e.code === 'Digit1'){
+    audioCtx(); activateShield();
+  } else if (e.code === 'KeyE' || e.code === 'Digit2'){
+    audioCtx(); activateMagnet();
+  } else if (e.code === 'KeyS' || e.code === 'ArrowDown'){
+    e.preventDefault();
+    audioCtx(); switchOrbit();
+  }
+});
+// 스킬 버튼 (즉각 반응을 위해 pointerdown 사용)
+function bindSkill(id, fn){
+  $(id).addEventListener('pointerdown', e => {
+    e.stopPropagation(); e.preventDefault();
+    audioCtx(); fn();
+  });
+}
+bindSkill('sk-shield', activateShield);
+bindSkill('sk-magnet', activateMagnet);
+bindSkill('sk-orbit', switchOrbit);
+// 언어 선택 버튼
+['en', 'ko'].forEach(l => {
+  $('lang-' + l).addEventListener('pointerdown', e => {
+    e.stopPropagation(); e.preventDefault();
+    audioCtx(); sndClick();
+    setLang(l);
+  });
+});
+// BGM 토글 버튼
+$('btn-music').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  audioCtx();
+  toggleMusic();
+});
+// 튜토리얼 오버레이: 첫 판 안내는 아무 곳이나 탭 → 다음 단계
+// (블랙홀 안내는 배경 탭 무시 — SKIP 버튼으로만 닫힘)
+$('tut').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  audioCtx();
+  if (tutMode !== 'card') tutNext();
+});
+// 블랙홀 안내 SKIP 버튼 (등장 직후 0.5초는 반사 탭 방지로 무시)
+$('btn-tut-skip').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  if (performance.now() - bhTutAt < 500) return;
+  audioCtx();
+  tutNext();
+});
+// 도움말 페이지 열기/닫기 (홈 화면 ? 버튼)
+$('btn-help-open').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  audioCtx(); sndClick();
+  $('help').classList.add('show');
+});
+$('btn-help-close').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  sndClick();
+  $('help').classList.remove('show');
+});
+// 도움말 배경 탭: 게임 시작으로 새지 않게 차단, 패널 밖 탭이면 닫기
+$('help').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (e.target === $('help')) $('help').classList.remove('show');
+});
+// 버튼
+$('btn-start').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); sndClick(); startGame();
+});
+$('btn-restart').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); sndClick(); startGame();
+});
+
+// ---------- 초기화 ----------
+resize();
+$('best-val').textContent = S.best;
+$('btn-music').classList.toggle('off', !musicOn);
+applyLang(); // 초기 언어 적용 (기기 언어 또는 저장된 선택)
+requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
