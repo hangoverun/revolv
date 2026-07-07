@@ -598,7 +598,12 @@ function setLang(l){
 
 // ---------- 분석 (GA4) — 어떤 오류도 게임에 영향을 주지 않도록 격리 ----------
 function track(name, params){
-  try { if (typeof gtag === 'function') gtag('event', name, params || {}); } catch(e){}
+  try {
+    params = params || {};
+    // 어느 플랫폼(netlify / itch.io / github.io)에서 플레이됐는지 구분
+    params.platform = (typeof location !== 'undefined' && location.hostname) || 'unknown';
+    if (typeof gtag === 'function') gtag('event', name, params);
+  } catch(e){}
 }
 
 // ---------- 사운드 (Web Audio API, 외부 파일 없음) ----------
