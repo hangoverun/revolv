@@ -9,6 +9,7 @@
 <meta name="description" content="REVOLV — 탭 한 번으로 궤도를 반전시키는 하이퍼캐주얼 아케이드. 스파크를 모으고 스파이크를 피하며 콤보를 쌓으세요. 설치 없이 브라우저에서 바로 플레이. One tap, reverse orbit.">
 <meta name="keywords" content="REVOLV, 아케이드 게임, 하이퍼캐주얼, 웹게임, 브라우저 게임, arcade game, hypercasual, web game, one tap">
 <meta name="author" content="playrevolv">
+<meta name="naver-site-verification" content="2496d7d6675aeeae4e3d7c75af765dc60f2c09a9" />
 <link rel="canonical" href="https://playrevolv.netlify.app/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="REVOLV">
@@ -612,8 +613,21 @@ function setLang(l){
 }
 
 // ---------- 분석 (GA4) — 어떤 오류도 게임에 영향을 주지 않도록 격리 ----------
+// 개발자 기기 제외: ?dev 로 접속 시 이 브라우저의 모든 추적을 영구 차단 (?dev=off 로 해제)
+let devExcluded = false;
+try {
+  const q = (typeof location !== 'undefined' && location.search) || '';
+  if (/[?&]dev=off\b/.test(q)){
+    localStorage.removeItem('revolv_dev');
+  } else if (/[?&]dev\b/.test(q)){
+    localStorage.setItem('revolv_dev', '1');
+  }
+  devExcluded = localStorage.getItem('revolv_dev') === '1';
+} catch(e){}
+
 function track(name, params){
   try {
+    if (devExcluded) return; // 개발자 기기: GA4 전송 차단
     params = params || {};
     // 어느 플랫폼(netlify / itch.io / github.io)에서 플레이됐는지 구분
     params.platform = (typeof location !== 'undefined' && location.hostname) || 'unknown';
@@ -2181,6 +2195,13 @@ resize();
 $('best-val').textContent = S.best;
 $('btn-music').classList.toggle('off', !musicOn);
 applyLang(); // 초기 언어 적용 (기기 언어 또는 저장된 선택)
+// 개발자 기기 제외 중이면 좌하단에 작은 표시
+if (devExcluded){
+  const b = document.createElement('div');
+  b.textContent = 'DEV';
+  b.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;font:700 9px Orbitron,sans-serif;letter-spacing:.15em;color:rgba(125,249,255,.45);pointer-events:none;';
+  document.body.appendChild(b);
+}
 requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
 </script>
 </body>
