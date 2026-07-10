@@ -323,6 +323,48 @@ body{
   background:#e8e6ff;transform:rotate(45deg);border-radius:2px;
 }
 
+/* ---------- 일시정지 버튼 (음악 버튼 옆) ---------- */
+#btn-pause{
+  position:fixed;top:calc(16px + env(safe-area-inset-top));left:64px;z-index:20;
+  width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(232,230,255,.25);background:rgba(18,16,46,.6);
+  color:#e8e6ff;font-size:11px;letter-spacing:2px;
+  cursor:pointer;display:none;transition:transform .1s;
+}
+#btn-pause.show{display:block}
+#btn-pause:active{transform:scale(.88)}
+
+/* ---------- 재개 카운트다운 ---------- */
+#count{
+  position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+  z-index:25;pointer-events:none;
+  font-family:var(--font-d);font-weight:700;
+  font-size:clamp(80px,20vw,140px);color:#fff;
+  text-shadow:0 0 30px rgba(125,249,255,.8);
+}
+#count.show{display:flex}
+#count.pop{animation:countPop .3s ease}
+@keyframes countPop{0%{transform:scale(1.45);opacity:.3}100%{transform:scale(1);opacity:1}}
+
+/* ---------- 가로 화면: HUD를 좌우로 재배치해 궤도 가림 방지 ---------- */
+@media (min-aspect-ratio: 13/10){
+  #score{
+    left:118px;right:auto;top:calc(12px + env(safe-area-inset-top));
+    text-align:left;font-size:clamp(26px,7vh,40px);
+  }
+  #combo{
+    left:120px;right:auto;top:calc(56px + env(safe-area-inset-top));
+    text-align:left;
+  }
+  #skills{
+    left:auto;right:calc(14px + env(safe-area-inset-right));
+    bottom:auto;top:50%;transform:translateY(-50%);
+    flex-direction:column;gap:14px;
+  }
+  .skill{width:56px;height:56px}
+  #tap-hint{bottom:10px}
+}
+
 /* 모션 최소화 설정 존중 */
 @media (prefers-reduced-motion:reduce){
   .logo,#tap-hint,#new-record,.skill.ready,.skill.spotlight,.tut-next{animation:none}
@@ -335,6 +377,10 @@ body{
 
 <!-- BGM 토글 -->
 <button id="btn-music" aria-label="배경음악 켜기/끄기">♪</button>
+<!-- 일시정지 (플레이 중에만 표시) -->
+<button id="btn-pause" aria-label="일시정지">❚❚</button>
+<!-- 재개 카운트다운 -->
+<div id="count">3</div>
 
 <!-- 사운드 토글 (BGM + 효과음) -->
 <button id="btn-sound" aria-label="사운드 켜기/끄기">🔊</button>
@@ -387,6 +433,15 @@ body{
     <button class="btn restart" id="btn-restart">RETRY</button>
     <div class="hint" id="over-hint"></div>
     <div class="over-contact">Feedback · Instagram @playrevolv</div>
+  </div>
+</div>
+
+<!-- 일시정지 화면 -->
+<div class="overlay" id="pause">
+  <div class="panel">
+    <div class="over-label" style="color:var(--cyan);text-shadow:0 0 16px rgba(125,249,255,.9)">PAUSED</div>
+    <button class="btn" id="btn-resume"></button>
+    <div class="hint" id="pause-hint"></div>
   </div>
 </div>
 
@@ -456,7 +511,9 @@ function resize(){
   canvas.style.width  = W + 'px';        // 화면 표시 크기는 뷰포트와 동일하게
   canvas.style.height = H + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  CX = W / 2; CY = H / 2 - H * 0.02; // 하단 스킬 버튼과의 간격 확보를 위해 위로 (기존 대비 약 5%p 상향)
+  CX = W / 2;
+  // 세로: 하단 버튼 간격 확보 위해 위로 / 가로: 버튼이 우측이므로 정중앙
+  CY = (W > H * 1.3) ? H / 2 : H / 2 - H * 0.02;
   Rbase = Math.min(W, H) * 0.32;
   R = Rbase * S.orbitK;
   makeStars(); // 해상도 변경 시 별 재배치
@@ -515,6 +572,7 @@ const L = {
     tutNext: '탭하여 계속 ▸',
     close: '닫기',
     fbLbl: '피드백', privacyLbl: '개인정보처리방침',
+    resume: '계속하기', pauseHint: '탭하여 재개',
     x2: '점수 ×2',
     tutT: ['궤도 반전', '무적', '자석'],
     tutB: [
@@ -549,6 +607,7 @@ const L = {
     tutNext: 'Tap to continue ▸',
     close: 'CLOSE',
     fbLbl: 'Feedback', privacyLbl: 'Privacy Policy',
+    resume: 'RESUME', pauseHint: 'Tap to resume',
     x2: 'SCORE ×2',
     tutT: ['Reverse Orbit', 'Shield', 'Magnet'],
     tutB: [
@@ -597,6 +656,8 @@ function applyLang(){
   $('over-hint').textContent = d.overHint;
   $('tut-next').textContent = d.tutNext;
   $('btn-help-close').textContent = d.close;
+  $('btn-resume').textContent = d.resume;
+  $('pause-hint').textContent = d.pauseHint;
   $('help-contact').innerHTML =
     d.fbLbl + ': <a href="https://www.instagram.com/playrevolv" target="_blank" rel="noopener">Instagram @playrevolv</a> · ' +
     '<a href="mailto:playrevolv@gmail.com">playrevolv@gmail.com</a><br>' +
@@ -1108,7 +1169,7 @@ function reverse(){
 
 // ---------- 스킬: 무적 ----------
 function activateShield(){
-  if (S.mode !== 'playing' || S.paused || S.shieldT > 0 || S.shieldGauge < SHIELD_CD) return;
+  if (S.mode !== 'playing' || S.paused || counting || S.shieldT > 0 || S.shieldGauge < SHIELD_CD) return;
   S.shieldGauge = 0;
   S.shieldT = SHIELD_DUR;
   const { x: px, y: py } = pPos();
@@ -1120,7 +1181,7 @@ function activateShield(){
 
 // ---------- 스킬: 자석 ----------
 function activateMagnet(){
-  if (S.mode !== 'playing' || S.paused || S.magnetGauge < MAGNET_CD) return;
+  if (S.mode !== 'playing' || S.paused || counting || S.magnetGauge < MAGNET_CD) return;
   let n = 0;
   for (const it of items){
     if (it.kind === 'spark' && !it.pulled){
@@ -1141,9 +1202,56 @@ function activateMagnet(){
   sndMagnet();
 }
 
+// ---------- 일시정지 / 재개 카운트다운 ----------
+let userPaused = false;  // 사용자 일시정지 (튜토리얼 pause와 구분)
+let counting = false;    // 3-2-1 카운트다운 진행 중
+
+function pauseGame(){
+  if (S.mode !== 'playing' || S.paused || counting) return;
+  S.paused = true;
+  userPaused = true;
+  $('pause').classList.add('show');
+  setMusicVol(0.05, 0.3);
+}
+function resumeGame(){
+  if (!userPaused) return;
+  userPaused = false;
+  $('pause').classList.remove('show');
+  runCountdown(() => { if (musicOn) setMusicVol(MUSIC_VOL, 0.5); });
+}
+// 3-2-1 카운트다운 후 게임 재개 — 튜토리얼 카드 닫기/일시정지 해제 공용
+// (카드를 닫자마자 바로 재개되어 순간 대응이 어려운 문제 해결)
+function runCountdown(done){
+  counting = true; // S.paused는 카운트다운 동안 유지 → 게임 정지 상태
+  const el = $('count');
+  let n = 3;
+  const show = () => {
+    el.textContent = n;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    tone(500 + (3 - n) * 120, 0.1, 'sine', 0.14);
+  };
+  el.classList.add('show');
+  show();
+  const step = () => {
+    n--;
+    if (n <= 0){
+      el.classList.remove('show');
+      counting = false;
+      S.paused = false;
+      popText(CX, CY - R - 36, 'GO!', '125,249,255', 22);
+      tone(880, 0.15, 'sine', 0.15, 1320);
+      if (done) done();
+      return;
+    }
+    show();
+    setTimeout(step, 650);
+  };
+  setTimeout(step, 650);
+}
+
 // ---------- 스킬: 궤도 전환 (듀얼 오빗) ----------
 function switchOrbit(){
-  if (S.mode !== 'playing' || S.paused || !S.dual || S.orbitCd > 0) return;
+  if (S.mode !== 'playing' || S.paused || counting || !S.dual || S.orbitCd > 0) return;
   P.ring = P.ring ? 0 : 1;
   S.orbitCd = 0.45; // 연타 방지 쿨다운
   sndSwitch();
@@ -1242,12 +1350,11 @@ function showSkipCard(icon, title, body, key){
 }
 function endTutorial(){
   tutMode = null;
-  S.paused = false;
   $('tut').className = '';
   $('sk-shield').classList.remove('spotlight');
   $('sk-magnet').classList.remove('spotlight');
-  popText(CX, CY - R - 40, 'GO!', '125,249,255', 22);
-  tone(660, 0.12, 'sine', 0.15, 990);
+  // 즉시 재개 대신 3-2-1 카운트다운 후 재개 (S.paused는 카운트다운이 해제)
+  runCountdown();
 }
 function tutNext(){
   sndClick();
@@ -1287,6 +1394,10 @@ function startGame(){
   $('menu').classList.remove('show');
   $('over').classList.remove('show');
   $('hud').classList.add('show');
+  $('btn-pause').classList.add('show');
+  $('pause').classList.remove('show');
+  $('count').classList.remove('show');
+  userPaused = false; counting = false;
   $('tap-hint').style.display = 'block';
   $('score').textContent = '0';
   $('best-val').textContent = S.best;
@@ -1302,6 +1413,7 @@ function startGame(){
 
 function die(spike){
   S.mode = 'dying'; S.dyingT = 0;
+  $('btn-pause').classList.remove('show');
   const { x: px, y: py } = pPos();
   burst(px, py, '125,249,255', 46, 320);
   burst(px, py, '255,45,120', 30, 220);
@@ -2096,6 +2208,8 @@ function loop(now){
 
 // ---------- 입력 ----------
 function primaryAction(){
+  if (counting) return; // 카운트다운 중 입력 무시
+  if (userPaused){ resumeGame(); return; } // 일시정지 중 탭 = 재개
   if (S.paused){
     if (tutMode !== 'card') tutNext(); // 이벤트 안내는 SKIP 버튼으로만 닫힘
     return;
@@ -2126,6 +2240,9 @@ window.addEventListener('keydown', e => {
   } else if (e.code === 'KeyS' || e.code === 'ArrowDown'){
     e.preventDefault();
     audioCtx(); switchOrbit();
+  } else if (e.code === 'KeyP' || e.code === 'Escape'){
+    audioCtx();
+    if (userPaused) resumeGame(); else pauseGame();
   }
 });
 // 스킬 버튼 (즉각 반응을 위해 pointerdown 사용)
@@ -2146,6 +2263,26 @@ bindSkill('sk-orbit', switchOrbit);
     setLang(l);
   });
 });
+// 일시정지 버튼 / 재개
+$('btn-pause').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  audioCtx(); sndClick();
+  pauseGame();
+});
+$('btn-resume').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  sndClick();
+  resumeGame();
+});
+$('pause').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  resumeGame(); // 화면 아무 곳이나 탭해도 재개 (카운트다운 후 시작)
+});
+// 탭/앱 전환 시 자동 일시정지
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseGame();
+});
+
 // BGM 토글 버튼
 $('btn-music').addEventListener('pointerdown', e => {
   e.stopPropagation(); e.preventDefault();
