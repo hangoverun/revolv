@@ -467,7 +467,12 @@ body{
     <div class="over-score" id="final-score">0</div>
     <div id="new-record">★ NEW RECORD ★</div>
     <div class="over-best" id="final-best">BEST 0</div>
+    <div class="next-goal" id="over-goal"></div>
     <button class="btn restart" id="btn-restart">RETRY</button>
+    <div class="share-row">
+      <button class="share-btn" id="btn-share"><span class="share-ic">↗</span><span id="lbl-share"></span></button>
+      <button class="share-btn" id="btn-copy"><span class="share-ic">⧉</span><span id="lbl-copy"></span></button>
+    </div>
     <div class="hint" id="over-hint"></div>
     <div class="over-contact">Feedback · Instagram @playrevolv</div>
   </div>
@@ -709,8 +714,8 @@ function applyLang(){
   $('btn-help-close').textContent = d.close;
   $('btn-resume').textContent = d.resume;
   $('pause-hint').textContent = d.pauseHint;
-  $('lbl-share').textContent = d.share;
-  $('lbl-copy').textContent = d.copyLink;
+  if ($('lbl-share')) $('lbl-share').textContent = d.share;
+  if ($('lbl-copy')) $('lbl-copy').textContent = d.copyLink;
   updateMenuGoal();
   $('help-contact').innerHTML =
     d.fbLbl + ': <a href="https://www.instagram.com/playrevolv" target="_blank" rel="noopener">Instagram @playrevolv</a> · ' +
@@ -1505,7 +1510,7 @@ function showGameOver(){
   $('final-score').textContent = S.score;
   $('final-best').textContent = 'BEST ' + S.best;
   $('new-record').classList.toggle('show', isRecord);
-  document.getElementById('over-goal').innerHTML = goalHTML(S.score);
+  { const og = document.getElementById('over-goal'); if (og) og.innerHTML = goalHTML(S.score); }
   $('hud').classList.remove('show');
   $('over').classList.add('show');
   if (isRecord) setTimeout(sndRecord, 350); else sndGameOver();
@@ -2518,10 +2523,10 @@ $('btn-restart').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); sndClick(); startGame();
 });
 // 공유 버튼
-$('btn-share').addEventListener('click', e => {
+if ($('btn-share')) $('btn-share').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); shareScore();
 });
-$('btn-copy').addEventListener('click', e => {
+if ($('btn-copy')) $('btn-copy').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); sndClick();
   copyToClipboard(L[lang].shareText(S.score), 'btn-copy');
 });
