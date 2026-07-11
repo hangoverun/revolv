@@ -359,9 +359,18 @@ body{
   #skills{
     left:auto;right:calc(14px + env(safe-area-inset-right));
     bottom:auto;top:50%;transform:translateY(-50%);
-    flex-direction:column;gap:14px;
+    flex-direction:column;gap:clamp(8px,2.4vh,14px);
   }
-  .skill{width:56px;height:56px}
+  /* 스킬 버튼: 화면 높이에 비례 (작은 폰 ~54px, 태블릿/데스크톱 최대 72px) */
+  .skill{
+    width:clamp(54px,14vh,72px);
+    height:clamp(54px,14vh,72px);
+  }
+  .skill .ic svg{
+    width:clamp(18px,5.6vh,26px);
+    height:clamp(18px,5.6vh,26px);
+  }
+  .skill .lb{font-size:clamp(8px,2.2vh,10px)}
   #tap-hint{bottom:10px}
 }
 
