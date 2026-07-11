@@ -621,7 +621,7 @@ const L = {
     allCleared: '모든 이벤트 해금 완료!',
     share: '점수 공유', challenge: '친구에게 도전', copyLink: '링크 복사',
     copied: '복사됨!',
-    shareText: (score) => 'REVOLV에서 ' + score.toLocaleString() + '점 달성!\n\n탭 한 번으로 궤도를 반전하는 아케이드 게임입니다.\n내 기록을 이겨보세요.\n\n' + SHARE_URL,
+    shareText: (score) => 'REVOLV에서 ' + score.toLocaleString() + '점 달성!\n\n탭 한 번으로 궤도를 반전하는 아케이드 게임입니다.\n내 기록을 이겨보세요.\n\nhttps://playrevolv.netlify.app',
     x2: '점수 ×2',
     tutT: ['궤도 반전', '무적', '자석'],
     tutB: [
@@ -663,7 +663,7 @@ const L = {
     allCleared: 'All events unlocked!',
     share: 'SHARE SCORE', challenge: 'CHALLENGE A FRIEND', copyLink: 'COPY LINK',
     copied: 'Copied!',
-    shareText: (score) => 'I scored ' + score.toLocaleString() + ' in REVOLV.\n\nOne tap. Reverse orbit.\nCan you beat me?\n\n' + SHARE_URL,
+    shareText: (score) => 'I scored ' + score.toLocaleString() + ' in REVOLV.\n\nOne tap. Reverse orbit.\nCan you beat me?\n\nhttps://playrevolv.netlify.app',
     x2: 'SCORE ×2',
     tutT: ['Reverse Orbit', 'Shield', 'Magnet'],
     tutB: [
@@ -1597,8 +1597,7 @@ function makeShareImage(score, isRecord){
   return cv;
 }
 
-// 공유 실행: Web Share(이미지+텍스트) 우선, 미지원 시 이미지 새 탭 + 캡션 클립보드 폴백
-const SHARE_URL = 'https://playrevolv.netlify.app';
+// 공유 실행: Web Share(이미지+텍스트) 우선, 미지원 시 텍스트/클립보드 폴백
 async function shareScore(){
   const score = S.score;
   const isRecord = score >= S.best;
@@ -1608,18 +1607,22 @@ async function shareScore(){
     const cv = makeShareImage(score, isRecord);
     const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
     const file = blob ? new File([blob], 'revolv-score.png', { type: 'image/png' }) : null;
-    // 1순위: 이미지 파일 공유 지원 시 — GAME OVER 결과 이미지를 그대로 공유
+    // 이미지 파일 공유 지원 시
     if (file && navigator.canShare && navigator.canShare({ files: [file] })){
       await navigator.share({ files: [file], text });
       return;
     }
-    // 2순위: 파일 공유 미지원 환경(대부분 PC 브라우저) — 텍스트만 공유하면 이미지가 누락되므로
-    // 이미지를 새 탭에 열어 저장/공유 가능하게 하고, 캡션은 클립보드에 복사해 함께 붙여넣을 수 있게 함
+    // 텍스트만이라도 네이티브 공유
+    if (navigator.share){
+      await navigator.share({ text });
+      return;
+    }
+    // 폴백: 클립보드 복사 + 이미지 새 탭
+    await copyToClipboard(text, 'btn-share');
     if (blob){
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
     }
-    await copyToClipboard(text, 'btn-share');
   } catch(e){
     // 사용자가 공유 취소한 경우 등은 조용히 무시
   }
@@ -2413,7 +2416,7 @@ function primaryAction(){
 }
 // 포인터(터치+마우스 통합)
 window.addEventListener('pointerdown', e => {
-  if (e.target.closest('.btn') || e.target.closest('.skill') || e.target.closest('.share-btn')) return; // 버튼은 자체 핸들러 사용
+  if (e.target.closest('.btn') || e.target.closest('.skill')) return; // 버튼은 자체 핸들러 사용
   audioCtx();
   primaryAction();
 });
@@ -2525,7 +2528,7 @@ if ($('btn-share')) $('btn-share').addEventListener('click', e => {
 });
 if ($('btn-copy')) $('btn-copy').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); sndClick();
-  copyToClipboard(SHARE_URL, 'btn-copy');
+  copyToClipboard(L[lang].shareText(S.score), 'btn-copy');
 });
 
 // ---------- 초기화 ----------
