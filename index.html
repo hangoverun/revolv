@@ -283,6 +283,33 @@ body{
 .help-contact a{color:var(--cyan);text-decoration:none}
 .over-contact{margin-top:16px;font-size:11px;letter-spacing:.12em;color:rgba(232,230,255,.35)}
 
+/* 다음 목표 배너 (첫 방문자 안내) */
+.next-goal{
+  margin-top:16px;font-family:var(--font-d);font-weight:500;
+  font-size:clamp(11px,3vw,13px);letter-spacing:.12em;text-align:center;
+  color:rgba(178,107,255,.9);line-height:1.5;
+}
+.next-goal .lbl{
+  display:block;font-size:9px;letter-spacing:.28em;
+  color:rgba(232,230,255,.4);margin-bottom:3px;
+}
+.next-goal b{color:#fff}
+.next-goal:empty{display:none}
+
+/* 공유 버튼 행 */
+.share-row{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.share-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:11px 20px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(125,249,255,.4);background:rgba(18,16,46,.6);
+  color:var(--cyan);font-family:var(--font-d);font-weight:500;
+  font-size:12px;letter-spacing:.14em;
+  transition:transform .12s,box-shadow .2s;
+}
+.share-btn:active{transform:scale(.93);box-shadow:0 0 18px rgba(125,249,255,.5)}
+.share-btn.done{border-color:var(--amber);color:var(--amber)}
+.share-ic{font-size:14px;line-height:1}
+
 /* ---------- 언어 선택 버튼 ---------- */
 .lang-row{margin-top:20px;display:flex;gap:10px}
 .lang-btn{
@@ -419,6 +446,7 @@ body{
   <div class="panel">
     <div class="logo">REVOLV</div>
     <div class="tagline">One Tap · Reverse Orbit</div>
+    <div class="next-goal" id="menu-goal"></div>
     <button class="btn" id="btn-start">START</button>
     <div class="hint" id="menu-hint"></div>
     <div class="rules">
@@ -582,6 +610,13 @@ const L = {
     close: '닫기',
     fbLbl: '피드백', privacyLbl: '개인정보처리방침',
     resume: '계속하기', pauseHint: '탭하여 재개',
+    msName: { bh:'블랙홀', fever:'슈퍼노바 피버', dual:'듀얼 오빗', comet:'혜성' },
+    nextEventLbl: '다음 이벤트',
+    goalTo: (pts, name) => name + '까지 ' + pts.toLocaleString() + '점',
+    allCleared: '모든 이벤트 해금 완료!',
+    share: '점수 공유', challenge: '친구에게 도전', copyLink: '링크 복사',
+    copied: '복사됨!',
+    shareText: (score) => 'REVOLV에서 ' + score.toLocaleString() + '점 달성!\n\n탭 한 번으로 궤도를 반전하는 아케이드 게임입니다.\n내 기록을 이겨보세요.\n\nhttps://playrevolv.netlify.app',
     x2: '점수 ×2',
     tutT: ['궤도 반전', '무적', '자석'],
     tutB: [
@@ -617,6 +652,13 @@ const L = {
     close: 'CLOSE',
     fbLbl: 'Feedback', privacyLbl: 'Privacy Policy',
     resume: 'RESUME', pauseHint: 'Tap to resume',
+    msName: { bh:'Black Hole', fever:'Supernova Fever', dual:'Dual Orbit', comet:'Comet' },
+    nextEventLbl: 'NEXT EVENT',
+    goalTo: (pts, name) => pts.toLocaleString() + ' pts to unlock ' + name,
+    allCleared: 'All events unlocked!',
+    share: 'SHARE SCORE', challenge: 'CHALLENGE A FRIEND', copyLink: 'COPY LINK',
+    copied: 'Copied!',
+    shareText: (score) => 'I scored ' + score.toLocaleString() + ' in REVOLV.\n\nOne tap. Reverse orbit.\nCan you beat me?\n\nhttps://playrevolv.netlify.app',
     x2: 'SCORE ×2',
     tutT: ['Reverse Orbit', 'Shield', 'Magnet'],
     tutB: [
@@ -667,6 +709,9 @@ function applyLang(){
   $('btn-help-close').textContent = d.close;
   $('btn-resume').textContent = d.resume;
   $('pause-hint').textContent = d.pauseHint;
+  $('lbl-share').textContent = d.share;
+  $('lbl-copy').textContent = d.copyLink;
+  updateMenuGoal();
   $('help-contact').innerHTML =
     d.fbLbl + ': <a href="https://www.instagram.com/playrevolv" target="_blank" rel="noopener">Instagram @playrevolv</a> · ' +
     '<a href="mailto:playrevolv@gmail.com">playrevolv@gmail.com</a><br>' +
@@ -1023,6 +1068,19 @@ const FEVER_DUR = 10;    // 슈퍼노바 피버 지속 시간 (초)
 const FEVER_MULT = 2;    // 피버 중 점수 배율
 const COMET_AT = 19000;  // 혜성 활성화 점수
 const DUAL_AT = 12000;   // 듀얼 오빗 해금 점수
+
+// 첫 방문자에게 보여줄 주요 마일스톤 (점수 오름차순) — 다음 목표 배너용
+const MILESTONES = [
+  { score: 5000,  key: 'bh' },
+  { score: 10000, key: 'fever' },
+  { score: 12000, key: 'dual' },
+  { score: 19000, key: 'comet' },
+];
+// 주어진 점수 기준 "다음 목표" 반환 (전부 넘었으면 null)
+function nextMilestone(score){
+  for (const m of MILESTONES){ if (score < m.score) return m; }
+  return null;
+}
 const RING_OUT = 1.35;   // 두 번째(바깥) 궤도 반지름 비율
 
 // ---------- 게임 상태 ----------
@@ -1447,6 +1505,7 @@ function showGameOver(){
   $('final-score').textContent = S.score;
   $('final-best').textContent = 'BEST ' + S.best;
   $('new-record').classList.toggle('show', isRecord);
+  document.getElementById('over-goal').innerHTML = goalHTML(S.score);
   $('hud').classList.remove('show');
   $('over').classList.add('show');
   if (isRecord) setTimeout(sndRecord, 350); else sndGameOver();
@@ -1458,6 +1517,129 @@ function updateCombo(){
     el.textContent = 'COMBO ×' + S.combo;
     el.classList.add('on');
   } else el.classList.remove('on');
+}
+
+// ---------- 다음 목표 배너 ----------
+function goalHTML(score){
+  const d = L[lang];
+  const m = nextMilestone(score);
+  if (!m) return '<span class="lbl">' + d.nextEventLbl + '</span>' + d.allCleared;
+  const remain = m.score - score;
+  const name = d.msName[m.key];
+  return '<span class="lbl">' + d.nextEventLbl + '</span>' + d.goalTo(remain, '<b>' + name + '</b>');
+}
+function updateMenuGoal(){
+  // 시작 화면: 항상 첫 목표(블랙홀 5,000) 안내
+  const el = document.getElementById('menu-goal');
+  if (el) el.innerHTML = goalHTML(0);
+}
+
+// ---------- 공유 기능 ----------
+// 결과 이미지 생성: 로고 + 점수 + 최고점여부 + CAN YOU BEAT THIS? + 주소
+function makeShareImage(score, isRecord){
+  const w = 1200, h = 630, cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const c = cv.getContext('2d');
+  // 배경
+  const bg = c.createRadialGradient(w/2, h*0.42, 30, w/2, h*0.42, w*0.7);
+  bg.addColorStop(0, 'hsl(248,60%,12%)'); bg.addColorStop(1, '#05040f');
+  c.fillStyle = bg; c.fillRect(0, 0, w, h);
+  // 별
+  for (let i = 0; i < 80; i++){
+    const x = (i*137.5) % w, y = (i*89.3) % h, z = .3 + ((i*7)%10)/14;
+    c.fillStyle = 'rgba(232,230,255,' + (0.12 + z*0.4).toFixed(2) + ')';
+    c.fillRect(x, y, z*2, z*2);
+  }
+  // 궤도 링 + 코어
+  c.beginPath(); c.arc(w/2, h*0.42, 150, 0, Math.PI*2);
+  c.strokeStyle = 'rgba(140,150,255,.35)'; c.lineWidth = 2;
+  c.shadowColor = 'rgba(125,249,255,.8)'; c.shadowBlur = 14; c.stroke(); c.shadowBlur = 0;
+  c.beginPath(); c.arc(w/2, h*0.42, 7, 0, Math.PI*2);
+  c.fillStyle = '#e8e6ff'; c.shadowColor = '#b28cff'; c.shadowBlur = 20; c.fill(); c.shadowBlur = 0;
+  // 로고 (자간 재현)
+  const spaced = (txt, font, y, sp, fill, glow, gb) => {
+    c.font = font; const ws = [...txt].map(ch => c.measureText(ch).width);
+    const tot = ws.reduce((a,b)=>a+b,0) + sp*(txt.length-1);
+    let x = (w-tot)/2; c.textBaseline='alphabetic'; c.fillStyle=fill;
+    if (glow){ c.shadowColor=glow; c.shadowBlur=gb; }
+    [...txt].forEach((ch,i)=>{ c.fillText(ch, x, y); x += ws[i]+sp; });
+    c.shadowBlur = 0;
+  };
+  spaced('REVOLV', '400 76px Megrim, sans-serif', 130, 22, '#fff', 'rgba(125,249,255,.9)', 24);
+  // 점수
+  c.textAlign = 'center';
+  c.font = '500 40px Orbitron, sans-serif';
+  c.fillStyle = 'rgba(232,230,255,.6)';
+  c.fillText(L[lang].nextEventLbl === 'NEXT EVENT' ? 'SCORE' : '점수', w/2, h*0.60);
+  c.font = '700 120px Orbitron, sans-serif';
+  c.fillStyle = '#fff'; c.shadowColor = 'rgba(125,249,255,.6)'; c.shadowBlur = 24;
+  c.fillText(score.toLocaleString(), w/2, h*0.60 + 108);
+  c.shadowBlur = 0;
+  if (isRecord){
+    c.font = '700 30px Orbitron, sans-serif';
+    c.fillStyle = '#ffd166'; c.shadowColor = '#ffd166'; c.shadowBlur = 14;
+    c.fillText('★ NEW RECORD ★', w/2, h*0.60 + 152);
+    c.shadowBlur = 0;
+  }
+  // CAN YOU BEAT THIS? + 주소
+  c.font = '700 26px Orbitron, sans-serif';
+  c.fillStyle = 'rgba(125,249,255,.9)';
+  c.fillText('CAN YOU BEAT THIS?', w/2, h - 70);
+  c.font = '400 20px Orbitron, sans-serif';
+  c.fillStyle = 'rgba(232,230,255,.5)';
+  c.fillText('playrevolv.netlify.app', w/2, h - 36);
+  c.textAlign = 'left';
+  return cv;
+}
+
+// 공유 실행: Web Share(이미지+텍스트) 우선, 미지원 시 텍스트/클립보드 폴백
+async function shareScore(){
+  const score = S.score;
+  const isRecord = score >= S.best;
+  const text = L[lang].shareText(score);
+  sndClick();
+  try {
+    const cv = makeShareImage(score, isRecord);
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    const file = blob ? new File([blob], 'revolv-score.png', { type: 'image/png' }) : null;
+    // 이미지 파일 공유 지원 시
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], text });
+      return;
+    }
+    // 텍스트만이라도 네이티브 공유
+    if (navigator.share){
+      await navigator.share({ text });
+      return;
+    }
+    // 폴백: 클립보드 복사 + 이미지 새 탭
+    await copyToClipboard(text, 'btn-share');
+    if (blob){
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    }
+  } catch(e){
+    // 사용자가 공유 취소한 경우 등은 조용히 무시
+  }
+}
+async function copyToClipboard(text, btnId){
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch(e){
+    // 구형 폴백
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch(e2){}
+    document.body.removeChild(ta);
+  }
+  const b = document.getElementById(btnId);
+  if (b){
+    const lbl = b.querySelector('span:last-child');
+    const orig2 = lbl.textContent;
+    lbl.textContent = L[lang].copied;
+    b.classList.add('done');
+    setTimeout(() => { lbl.textContent = orig2; b.classList.remove('done'); }, 1600);
+  }
 }
 
 // ---------- 업데이트 ----------
@@ -2334,6 +2516,14 @@ $('btn-start').addEventListener('click', e => {
 });
 $('btn-restart').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); sndClick(); startGame();
+});
+// 공유 버튼
+$('btn-share').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); shareScore();
+});
+$('btn-copy').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); sndClick();
+  copyToClipboard(L[lang].shareText(S.score), 'btn-copy');
 });
 
 // ---------- 초기화 ----------
