@@ -324,6 +324,56 @@ body{
   font-weight:700;box-shadow:0 0 14px rgba(125,249,255,.5);
 }
 
+/* ---------- 리더보드 ---------- */
+#board,#nick{z-index:16}
+.board-panel{width:min(420px,88vw);max-height:82vh}
+.board-list{
+  margin-top:18px;width:100%;max-height:44vh;overflow-y:auto;
+  display:flex;flex-direction:column;gap:6px;
+  -webkit-overflow-scrolling:touch;
+}
+.board-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;border-radius:12px;
+  background:rgba(18,16,46,.5);
+  font-family:var(--font-d);font-size:13px;letter-spacing:.04em;
+}
+.board-row .b-rank{
+  width:28px;flex:none;text-align:center;color:var(--amber);font-weight:700;
+}
+.board-row .b-nick{
+  flex:1;text-align:left;color:#e8e6ff;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.board-row .b-score{flex:none;color:var(--cyan);font-weight:700}
+.board-row.top3 .b-rank{color:#fff;text-shadow:0 0 10px rgba(255,209,102,.9)}
+.board-empty,.board-loading,.board-error{
+  margin-top:22px;font-size:12px;color:rgba(232,230,255,.5);
+  font-family:var(--font-b);letter-spacing:.06em;line-height:1.6;
+}
+.board-mine{
+  margin-top:16px;padding:12px 16px;width:100%;border-radius:14px;
+  border:1px solid rgba(125,249,255,.35);background:rgba(125,249,255,.08);
+  font-family:var(--font-d);font-size:13px;color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.board-mine .bm-lbl{font-size:9px;letter-spacing:.24em;color:rgba(232,230,255,.5)}
+.board-mine .bm-cta{
+  color:var(--cyan);text-decoration:underline;cursor:pointer;font-size:12px;
+}
+.board-mine:empty{display:none}
+
+/* ---------- 닉네임 입력 ---------- */
+.nick-input{
+  margin-top:22px;width:min(240px,70vw);
+  padding:14px 18px;border-radius:999px;text-align:center;
+  border:1px solid rgba(125,249,255,.4);background:rgba(18,16,46,.6);
+  color:#fff;font-family:var(--font-d);font-size:16px;letter-spacing:.06em;
+  outline:none;
+}
+.nick-input:focus{border-color:var(--cyan);box-shadow:0 0 16px rgba(125,249,255,.4)}
+.nick-input::placeholder{color:rgba(232,230,255,.35)}
+
 /* ---------- 홈 화면 ? 버튼 ---------- */
 .corner-btn{
   position:absolute;top:calc(16px + env(safe-area-inset-top));right:16px;
@@ -457,6 +507,9 @@ body{
       <button class="lang-btn" id="lang-en">English</button>
       <button class="lang-btn" id="lang-ko">한국어</button>
     </div>
+    <div class="share-row" style="margin-top:16px">
+      <button class="share-btn" id="btn-rank-open"><span class="share-ic">🏆</span><span id="lbl-rank"></span></button>
+    </div>
   </div>
 </div>
 
@@ -472,6 +525,7 @@ body{
     <div class="share-row">
       <button class="share-btn" id="btn-share"><span class="share-ic">↗</span><span id="lbl-share"></span></button>
       <button class="share-btn" id="btn-copy"><span class="share-ic">⧉</span><span id="lbl-copy"></span></button>
+      <button class="share-btn" id="btn-rank-open2"><span class="share-ic">🏆</span><span id="lbl-rank2"></span></button>
     </div>
     <div class="hint" id="over-hint"></div>
     <div class="over-contact">Feedback · Instagram @playrevolv</div>
@@ -484,6 +538,27 @@ body{
     <div class="over-label" style="color:var(--cyan);text-shadow:0 0 16px rgba(125,249,255,.9)">PAUSED</div>
     <button class="btn" id="btn-resume"></button>
     <div class="hint" id="pause-hint"></div>
+  </div>
+</div>
+
+<!-- 리더보드 화면 -->
+<div class="overlay" id="board">
+  <div class="panel board-panel">
+    <div class="over-label" id="board-title" style="font-size:clamp(20px,6vw,28px)">LEADERBOARD</div>
+    <div class="board-list" id="board-list"></div>
+    <div class="board-mine" id="board-mine"></div>
+    <button class="btn small" id="btn-board-close"></button>
+  </div>
+</div>
+
+<!-- 닉네임 등록 화면 -->
+<div class="overlay" id="nick">
+  <div class="panel">
+    <div class="over-label" id="nick-title" style="font-size:clamp(18px,5vw,24px)">SAVE YOUR RANK</div>
+    <div class="hint" id="nick-desc" style="margin-top:10px;max-width:280px"></div>
+    <input type="text" id="nick-input" class="nick-input" maxlength="12" autocomplete="off" spellcheck="false" />
+    <button class="btn" id="btn-nick-save" style="margin-top:24px">SAVE</button>
+    <div class="hint" id="btn-nick-skip" style="margin-top:16px;cursor:pointer;text-decoration:underline"></div>
   </div>
 </div>
 
@@ -645,7 +720,19 @@ const L = {
       fever: '<b>슈퍼노바 피버</b> (10000·20000점…)<br>10초간 스파크 5개 + 점수 ×2 + 속도 상승!',
       comet: '<b>혜성</b> (19000점~)<br>경고선이 그어진 뒤 궤도를 관통합니다. 경로를 피하세요!',
       dual: '<b>듀얼 오빗</b> (12000점~) (PC: S)<br>바깥 궤도가 열립니다. 버튼으로 궤도를 전환하세요.'
-    }
+    },
+    rank: '랭킹', boardTitle: '리더보드',
+    boardLoading: '불러오는 중...',
+    boardEmpty: '아직 등록된 기록이 없습니다.<br>첫 번째 랭커가 되어보세요!',
+    boardError: '리더보드를 불러오지 못했습니다.<br>잠시 후 다시 시도해주세요.',
+    myRankLbl: '내 순위',
+    setNickCta: '닉네임 등록하고 순위 보기',
+    noScoreYet: '아직 등록된 점수가 없어요.<br>한 판 플레이하면 순위가 표시됩니다.',
+    nickTitle: '닉네임 등록',
+    nickDesc: '리더보드에 표시될 닉네임을 입력하세요 (최대 12자)',
+    nickPlaceholder: '닉네임',
+    nickSave: '저장',
+    nickSkip: '나중에 하기',
   },
   en: {
     menuHint: 'TAP/SPACE = Reverse · Q Shield · E Magnet',
@@ -687,7 +774,19 @@ const L = {
       fever: '<b>Supernova Fever</b> (10000·20000 pts…)<br>10s of 5 sparks + double score + extra speed!',
       comet: '<b>Comet</b> (19000 pts~)<br>Pierces the orbit after a warning line. Dodge its path!',
       dual: '<b>Dual Orbit</b> (12000 pts~) (PC: S)<br>An outer ring opens. Switch orbits with the button.'
-    }
+    },
+    rank: 'RANK', boardTitle: 'LEADERBOARD',
+    boardLoading: 'Loading...',
+    boardEmpty: 'No scores yet.<br>Be the first on the leaderboard!',
+    boardError: 'Could not load the leaderboard.<br>Please try again shortly.',
+    myRankLbl: 'YOUR RANK',
+    setNickCta: 'Set a nickname to see your rank',
+    noScoreYet: 'No score submitted yet.<br>Play a round to see your rank.',
+    nickTitle: 'Save Your Rank',
+    nickDesc: 'Enter a nickname to show on the leaderboard (up to 12 characters)',
+    nickPlaceholder: 'Nickname',
+    nickSave: 'SAVE',
+    nickSkip: 'Maybe later',
   }
 };
 let lang = 'en';
@@ -716,6 +815,15 @@ function applyLang(){
   $('pause-hint').textContent = d.pauseHint;
   if ($('lbl-share')) $('lbl-share').textContent = d.share;
   if ($('lbl-copy')) $('lbl-copy').textContent = d.copyLink;
+  if ($('lbl-rank')) $('lbl-rank').textContent = d.rank;
+  if ($('lbl-rank2')) $('lbl-rank2').textContent = d.rank;
+  if ($('board-title')) $('board-title').textContent = d.boardTitle;
+  if ($('btn-board-close')) $('btn-board-close').textContent = d.close;
+  if ($('nick-title')) $('nick-title').textContent = d.nickTitle;
+  if ($('nick-desc')) $('nick-desc').textContent = d.nickDesc;
+  if ($('nick-input')) $('nick-input').placeholder = d.nickPlaceholder;
+  if ($('btn-nick-save')) $('btn-nick-save').textContent = d.nickSave;
+  if ($('btn-nick-skip')) $('btn-nick-skip').textContent = d.nickSkip;
   updateMenuGoal();
   $('help-contact').innerHTML =
     d.fbLbl + ': <a href="https://www.instagram.com/playrevolv" target="_blank" rel="noopener">Instagram @playrevolv</a> · ' +
@@ -1514,6 +1622,12 @@ function showGameOver(){
   $('hud').classList.remove('show');
   $('over').classList.add('show');
   if (isRecord) setTimeout(sndRecord, 350); else sndGameOver();
+  // 리더보드: 닉네임이 있으면 조용히 자동 제출, 없으면 최초 1회 등록을 유도
+  if (getNickname()){
+    submitScore(S.score, S.time);
+  } else if (!nickSkipped()){
+    setTimeout(openNick, 900);
+  }
 }
 
 function updateCombo(){
@@ -1644,7 +1758,157 @@ async function copyToClipboard(text, btnId){
   }
 }
 
-// ---------- 업데이트 ----------
+// ---------- 리더보드 (Phase 3, Supabase) ----------
+const SB_URL = 'https://ipuxxeypzmhpqqwjdooc.supabase.co';
+const SB_ANON = 'sb_publishable_a_EHZWHu5ytO1FfYVX0uxw_IrHFJ8OB';
+const SB_PLATFORM = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mobile' : 'pc';
+
+function getPlayerId(){
+  try {
+    let id = localStorage.getItem('revolv_pid');
+    if (!id){ id = crypto.randomUUID(); localStorage.setItem('revolv_pid', id); }
+    return id;
+  } catch(e){ return null; }
+}
+function getNickname(){
+  try { return localStorage.getItem('revolv_nick') || ''; } catch(e){ return ''; }
+}
+function setNickname(n){
+  try { localStorage.setItem('revolv_nick', n); } catch(e){}
+}
+function nickSkipped(){
+  try { return localStorage.getItem('revolv_nick_skipped') === '1'; } catch(e){ return false; }
+}
+function setNickSkipped(){
+  try { localStorage.setItem('revolv_nick_skipped', '1'); } catch(e){}
+}
+
+// 점수 제출: 닉네임이 있을 때만, 실패해도 게임에 영향 없도록 완전히 격리
+async function submitScore(score, playTime){
+  const nick = getNickname();
+  const pid = getPlayerId();
+  if (!nick || !pid) return;
+  try {
+    await fetch(SB_URL + '/rest/v1/rpc/submit_score', {
+      method: 'POST',
+      headers: {
+        'apikey': SB_ANON,
+        'Authorization': 'Bearer ' + SB_ANON,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_player_id: pid,
+        p_nickname: nick,
+        p_score: Math.max(0, Math.round(score)),
+        p_play_time: Math.max(0, Math.round(playTime)),
+        p_platform: SB_PLATFORM,
+      }),
+    });
+  } catch(e){ /* 오프라인 등은 조용히 무시 — 로컬 플레이엔 영향 없음 */ }
+}
+
+// 리더보드 조회: 상위 100 + 내 순위
+async function fetchLeaderboard(){
+  const pid = getPlayerId();
+  const headers = { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + SB_ANON };
+  const topPromise = fetch(
+    SB_URL + '/rest/v1/scores?select=nickname,score&order=score.desc&limit=100',
+    { headers }
+  ).then(r => r.ok ? r.json() : Promise.reject(new Error('http ' + r.status)));
+
+  let minePromise = Promise.resolve(null);
+  if (pid && getNickname()){
+    minePromise = fetch(
+      SB_URL + '/rest/v1/rpc/my_rank',
+      { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_player_id: pid }) }
+    ).then(r => r.ok ? r.json() : Promise.reject(new Error('http ' + r.status)))
+     .then(rows => (Array.isArray(rows) && rows[0]) ? rows[0] : null)
+     .catch(() => null);
+  }
+
+  const top = await topPromise;
+  const mine = await minePromise;
+  return { top: Array.isArray(top) ? top : [], mine };
+}
+
+function renderBoardList(rows){
+  const el = $('board-list');
+  if (!el) return;
+  if (!rows.length){
+    el.innerHTML = '<div class="board-empty">' + L[lang].boardEmpty + '</div>';
+    return;
+  }
+  let html = '';
+  rows.forEach((row, i) => {
+    const rank = i + 1;
+    html += '<div class="board-row' + (rank <= 3 ? ' top3' : '') + '">' +
+      '<span class="b-rank">' + rank + '</span>' +
+      '<span class="b-nick">' + escapeHTML(row.nickname || '') + '</span>' +
+      '<span class="b-score">' + Number(row.score || 0).toLocaleString() + '</span>' +
+    '</div>';
+  });
+  el.innerHTML = html;
+}
+function renderBoardMine(mine){
+  const el = $('board-mine');
+  if (!el) return;
+  if (mine && typeof mine.rank !== 'undefined'){
+    el.innerHTML =
+      '<span class="bm-lbl">' + L[lang].myRankLbl + '</span>' +
+      '<span class="b-rank" style="color:var(--cyan)">#' + mine.rank + '</span>' +
+      '<span class="b-nick">' + escapeHTML(mine.nickname || '') + '</span>' +
+      '<span class="b-score">' + Number(mine.score || 0).toLocaleString() + '</span>';
+  } else if (!getNickname()) {
+    el.innerHTML = '<span class="bm-cta" id="board-mine-cta">' + L[lang].setNickCta + '</span>';
+    const cta = $('board-mine-cta');
+    if (cta) cta.addEventListener('click', e => { e.stopPropagation(); openNick(); });
+  } else {
+    el.innerHTML = '<span class="board-empty" style="margin:0">' + L[lang].noScoreYet + '</span>';
+  }
+}
+function escapeHTML(s){
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+async function openBoard(){
+  audioCtx(); sndClick();
+  $('board').classList.add('show');
+  $('board-list').innerHTML = '<div class="board-loading">' + L[lang].boardLoading + '</div>';
+  $('board-mine').innerHTML = '';
+  try {
+    const { top, mine } = await fetchLeaderboard();
+    renderBoardList(top);
+    renderBoardMine(mine);
+  } catch(e){
+    $('board-list').innerHTML = '<div class="board-error">' + L[lang].boardError + '</div>';
+  }
+}
+function closeBoard(){
+  sndClick();
+  $('board').classList.remove('show');
+}
+
+function openNick(){
+  audioCtx(); sndClick();
+  $('nick-input').value = getNickname();
+  $('nick').classList.add('show');
+  setTimeout(() => { try { $('nick-input').focus(); } catch(e){} }, 50);
+}
+function closeNick(){
+  $('nick').classList.remove('show');
+}
+function saveNickAndSubmit(){
+  const v = ($('nick-input').value || '').trim().slice(0, 12);
+  if (!v) return;
+  sndClick();
+  setNickname(v);
+  closeNick();
+  // 방금 종료된 판이 있다면 그 기록을 바로 제출 (게임오버 직후 최초 등록 흐름)
+  if (S.mode === 'over') submitScore(S.score, S.time);
+}
+
+
 function update(dt){
   // 배경/이펙트는 어느 모드에서든 진행
   for (const st of stars) st.tw += dt * 2;
@@ -2414,6 +2678,7 @@ function primaryAction(){
 // 포인터(터치+마우스 통합)
 window.addEventListener('pointerdown', e => {
   if (e.target.closest('.btn') || e.target.closest('.skill') || e.target.closest('.share-btn')) return; // 버튼은 자체 핸들러 사용
+  if ($('board').classList.contains('show') || $('nick').classList.contains('show')) return; // 리더보드/닉네임 화면에서는 재시작 방지
   audioCtx();
   primaryAction();
 });
@@ -2526,6 +2791,39 @@ if ($('btn-share')) $('btn-share').addEventListener('click', e => {
 if ($('btn-copy')) $('btn-copy').addEventListener('click', e => {
   e.stopPropagation(); audioCtx(); sndClick();
   copyToClipboard(SHARE_URL, 'btn-copy');
+});
+// 리더보드 열기 (홈 화면 / 게임오버 화면)
+if ($('btn-rank-open')) $('btn-rank-open').addEventListener('click', e => {
+  e.stopPropagation(); openBoard();
+});
+if ($('btn-rank-open2')) $('btn-rank-open2').addEventListener('click', e => {
+  e.stopPropagation(); openBoard();
+});
+$('btn-board-close').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  closeBoard();
+});
+// 리더보드 배경 탭: 패널 밖이면 닫기 (재시작으로 새지 않게 전파도 차단)
+$('board').addEventListener('pointerdown', e => {
+  e.stopPropagation();
+  if (e.target === $('board')) closeBoard();
+});
+// 닉네임 저장/건너뛰기
+$('btn-nick-save').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); saveNickAndSubmit();
+});
+$('nick-input').addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Enter') saveNickAndSubmit();
+});
+$('nick-input').addEventListener('pointerdown', e => e.stopPropagation());
+$('btn-nick-skip').addEventListener('click', e => {
+  e.stopPropagation(); audioCtx(); sndClick();
+  setNickSkipped();
+  closeNick();
+});
+$('nick').addEventListener('pointerdown', e => {
+  e.stopPropagation();
 });
 
 // ---------- 초기화 ----------
