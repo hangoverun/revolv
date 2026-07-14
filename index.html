@@ -556,7 +556,7 @@ body{
 <div class="overlay" id="nick">
   <div class="panel">
     <div class="over-label" id="nick-title" style="font-size:clamp(18px,5vw,24px)">SAVE YOUR RANK</div>
-    <div class="hint" id="nick-desc" style="margin-top:10px;max-width:280px"></div>
+    <div class="hint" id="nick-desc" style="margin-top:10px;max-width:280px;white-space:pre-line"></div>
     <input type="text" id="nick-input" class="nick-input" maxlength="12" autocomplete="off" spellcheck="false" />
     <button class="btn" id="btn-nick-save" style="margin-top:24px">SAVE</button>
     <div class="hint" id="btn-nick-skip" style="margin-top:16px;cursor:pointer;text-decoration:underline"></div>
@@ -730,7 +730,7 @@ const L = {
     setNickCta: '닉네임 등록하고 순위 보기',
     noScoreYet: '아직 등록된 점수가 없어요.<br>한 판 플레이하면 순위가 표시됩니다.',
     nickTitle: '닉네임 등록',
-    nickDesc: '리더보드에 표시될 닉네임을 입력하세요 (최대 12자)',
+    nickDesc: '리더보드에 표시될 닉네임을 입력하세요 (최대 12자)\n※ 닉네임은 모든 플레이어에게 공개되니 실명·이메일 등 개인정보는 사용하지 마세요.',
     nickPlaceholder: '닉네임',
     nickSave: '저장',
     nickSkip: '나중에 하기',
@@ -784,7 +784,7 @@ const L = {
     setNickCta: 'Set a nickname to see your rank',
     noScoreYet: 'No score submitted yet.<br>Play a round to see your rank.',
     nickTitle: 'Save Your Rank',
-    nickDesc: 'Enter a nickname to show on the leaderboard (up to 12 characters)',
+    nickDesc: 'Enter a nickname to show on the leaderboard (up to 12 characters)\n※ Your nickname is public — don\'t use your real name, email, or other personal info.',
     nickPlaceholder: 'Nickname',
     nickSave: 'SAVE',
     nickSkip: 'Maybe later',
@@ -985,7 +985,7 @@ function ensureMusic(){
   delaySend.connect(dly); dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(musicGain);
   nextBarT = AC.currentTime + 0.1; barIdx = 0;
   setInterval(musicLoop, 300); // 룩어헤드 스케줄러
-  if (musicOn) setMusicVol(MUSIC_VOL, 1.5);
+  applyMusicVol(1.5);
 }
 function musicLoop(){
   if (!AC) return;
@@ -1056,8 +1056,8 @@ function toggleMusic(){
   musicOn = !musicOn;
   try { localStorage.setItem('revolv_music', musicOn ? '1' : '0'); } catch(e){}
   document.getElementById('btn-music').classList.toggle('off', !musicOn);
-  if (musicOn){ audioCtx(); setMusicVol(S.mode === 'over' || S.mode === 'dying' ? 0.05 : MUSIC_VOL); }
-  else setMusicVol(0, 0.2);
+  if (musicOn) audioCtx();
+  applyMusicVol(musicOn ? undefined : 0.2); // 음소거 중이면 applyMusicVol이 0을 유지
 }
 
 /* ============================================================
@@ -1162,13 +1162,19 @@ function bgmScheduleStep(step, t){
 }
 
 // ---------- 음소거 토글 ----------
+// 🔊 버튼 = 전체 음소거(효과음 + BGM). ♪ 버튼(musicOn)은 BGM만 별도 토글.
+// 효과음은 tone()/noiseBurst()에서 muted 플래그를 직접 확인하므로 여기선 BGM 볼륨만 처리.
 function setMuted(m){
   muted = m;
-  $('btn-sound').textContent = m ? '🔇' : '🔊';
-  if (BGM.nodes && AC){
-    BGM.nodes.master.gain.setTargetAtTime((m || !BGM.on) ? 0 : BGM_VOL, AC.currentTime, 0.1);
-  }
+  if ($('btn-sound')) $('btn-sound').textContent = m ? '🔇' : '🔊';
+  applyMusicVol();
   try { localStorage.setItem('revolv_mute', m ? '1' : '0'); } catch(e){}
+}
+// 현재 상태(음소거 여부 + BGM on/off + 게임 모드)에 맞는 BGM 볼륨을 적용
+function applyMusicVol(t){
+  if (muted || !musicOn){ setMusicVol(0, t); return; }
+  const quiet = (S.mode === 'over' || S.mode === 'dying');
+  setMusicVol(quiet ? 0.05 : MUSIC_VOL, t);
 }
 
 // ---------- 스킬 / 블랙홀 설정 ----------
@@ -1392,13 +1398,13 @@ function pauseGame(){
   S.paused = true;
   userPaused = true;
   $('pause').classList.add('show');
-  setMusicVol(0.05, 0.3);
+  if (!muted && musicOn) setMusicVol(0.05, 0.3);
 }
 function resumeGame(){
   if (!userPaused) return;
   userPaused = false;
   $('pause').classList.remove('show');
-  runCountdown(() => { if (musicOn) setMusicVol(MUSIC_VOL, 0.5); });
+  runCountdown(() => { applyMusicVol(0.5); });
 }
 // 3-2-1 카운트다운 후 게임 재개 — 튜토리얼 카드 닫기/일시정지 해제 공용
 // (카드를 닫자마자 바로 재개되어 순간 대응이 어려운 문제 해결)
@@ -1583,7 +1589,7 @@ function startGame(){
   $('score').textContent = '0';
   $('best-val').textContent = S.best;
   updateCombo();
-  if (musicOn) setMusicVol(MUSIC_VOL, 0.8); // BGM 복귀
+  applyMusicVol(0.8); // BGM 복귀 (음소거/BGM off 상태면 0 유지)
   sndStart();
   track('game_start', { language: lang });
   // 튜토리얼 상태 정리 후, 첫 판이면 튜토리얼 시작
@@ -1602,7 +1608,7 @@ function die(spike){
   shake(16, 0.55);
   flash('255,45,120', 0.5);
   sndDeath();
-  setMusicVol(0.04, 0.5); // BGM 덕킹 — 게임오버 연출 강조
+  if (!muted && musicOn) setMusicVol(0.04, 0.5); // BGM 덕킹 — 게임오버 연출 강조
   if (navigator.vibrate) { try { navigator.vibrate(80); } catch(e){} }
 }
 
@@ -2748,6 +2754,13 @@ $('btn-music').addEventListener('pointerdown', e => {
   audioCtx();
   toggleMusic();
 });
+// 음소거 토글 버튼 (효과음 + BGM 전체)
+$('btn-sound').addEventListener('pointerdown', e => {
+  e.stopPropagation(); e.preventDefault();
+  audioCtx();
+  setMuted(!muted);
+  if (!muted) sndClick(); // 음소거 해제 시에만 클릭음 피드백
+});
 // 튜토리얼 오버레이: 첫 판 안내는 아무 곳이나 탭 → 다음 단계
 // (블랙홀 안내는 배경 탭 무시 — SKIP 버튼으로만 닫힘)
 $('tut').addEventListener('pointerdown', e => {
@@ -2831,6 +2844,7 @@ $('nick').addEventListener('pointerdown', e => {
 resize();
 $('best-val').textContent = S.best;
 $('btn-music').classList.toggle('off', !musicOn);
+$('btn-sound').textContent = muted ? '🔇' : '🔊'; // 저장된 음소거 상태 복원
 applyLang(); // 초기 언어 적용 (기기 언어 또는 저장된 선택)
 // 개발자 기기 제외 중이면 좌하단에 작은 표시
 if (devExcluded){
